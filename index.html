@@ -7,7 +7,7 @@
     <style>
       :root {
         font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-        background: linear-gradient(180deg, #ffeef1 0%, #ffd3dc 45%, #ffbccb 100%);
+        background: linear-gradient(180deg, #ffe8cc 0%, #ffc98e 45%, #f6a55a 100%);
         color: #1b3d91;
       }
 
@@ -74,7 +74,6 @@
 
       const container = document.getElementById('scene-container');
       const scene = new THREE.Scene();
-      scene.background = new THREE.Color(0xfff4f6);
 
       const camera = new THREE.PerspectiveCamera(
         45,
@@ -82,9 +81,10 @@
         0.1,
         100
       );
-      camera.position.set(6, 5.5, 7);
+      camera.position.set(9, 7.5, 11);
 
-      const renderer = new THREE.WebGLRenderer({ antialias: true });
+      const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+      renderer.setClearColor(0x000000, 0);
       renderer.setPixelRatio(window.devicePixelRatio);
       renderer.setSize(container.clientWidth, container.clientHeight);
       container.appendChild(renderer.domElement);
@@ -93,8 +93,8 @@
       controls.enableDamping = true;
       controls.dampingFactor = 0.08;
       controls.target.set(0, 0, 0);
-      controls.minDistance = 4;
-      controls.maxDistance = 14;
+      controls.minDistance = 6;
+      controls.maxDistance = 16;
       controls.update();
 
       const ambient = new THREE.AmbientLight(0xffffff, 0.55);
