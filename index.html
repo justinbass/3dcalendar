@@ -151,6 +151,7 @@
       };
 
       const WEEKDAY_CUBE_HEIGHT = CUBE_SIZE * 0.45;
+      const DAY_HEIGHT = CUBE_SIZE * 0.5;
 
       const eventSpecs = [
         { label: 'Birthday', accent: '#ffb7d5', labelScale: 0.15 },
@@ -187,7 +188,7 @@
 
       const DECOR_BASE_DEPTH = CUBE_SIZE * 1.4;
       const TILE_DEPTH = DECOR_BASE_DEPTH * 0.94;
-      const baseGeometry = new THREE.BoxGeometry(CUBE_SIZE, CUBE_SIZE, TILE_DEPTH);
+      const baseGeometry = new THREE.BoxGeometry(CUBE_SIZE, DAY_HEIGHT, TILE_DEPTH);
       const WEEKDAY_CUBE_GEOMETRY = new THREE.BoxGeometry(CUBE_SIZE, WEEKDAY_CUBE_HEIGHT, TILE_DEPTH);
       const emptyDayMaterial = new THREE.MeshStandardMaterial({
         color: palette.baseRed,
@@ -198,8 +199,13 @@
       const weekdays = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
       let layoutState = null;
 
+      const NUMBER_X_SCALE = 0.78;
       function padTextureText(ctx, label, size) {
-        ctx.fillText(label, size / 2, size * 0.6);
+        ctx.save();
+        ctx.translate(size / 2, size * 0.6);
+        ctx.scale(NUMBER_X_SCALE, 1);
+        ctx.fillText(label, 0, 0);
+        ctx.restore();
       }
 
       function createDayTexture({ label, active, highlight, weekend }) {
@@ -234,7 +240,8 @@
 
         if (showDateNumber) {
           ctx.fillStyle = textColor;
-          ctx.font = `600 ${size * 0.5}px 'Baloo 2', 'Nunito', sans-serif`;
+          const fontSize = size * 0.32;
+          ctx.font = `600 ${fontSize}px 'Nunito', 'Baloo 2', sans-serif`;
           ctx.textAlign = 'center';
           ctx.textBaseline = 'middle';
           ctx.shadowColor = 'rgba(0,0,0,0.08)';
@@ -605,6 +612,7 @@
         const paddingY = CUBE_SIZE * 1.4;
         const baseDepth = DECOR_BASE_DEPTH;
         const frontFace = TILE_DEPTH / 2;
+        const alignedPanelZ = frontFace - TILE_DEPTH / 2 + 0.02;
         const baseWidth = width + paddingX * 2;
         const baseHeight = height + paddingY;
 
@@ -645,22 +653,30 @@
           }
         }
 
-        const stripeTexture = createStripePanelTexture();
-        const leftPanelDepth = TILE_DEPTH;
-        const leftPanel = new THREE.Mesh(
-          new THREE.BoxGeometry(CUBE_SIZE * 1.15, height * 0.96, leftPanelDepth),
-          new THREE.MeshStandardMaterial({
-            map: stripeTexture,
-            roughness: 0.35,
-            metalness: 0.08,
-          })
-        );
-        const alignedPanelZ = frontFace - TILE_DEPTH / 2 + 0.02;
-        leftPanel.position.set(-width / 2 - CUBE_SIZE * 0.35, CUBE_SIZE * 0.6, alignedPanelZ);
-        leftPanel.castShadow = true;
-        leftPanel.receiveShadow = true;
-        decorGroup.add(leftPanel);
-        const leftPanelRightEdge = leftPanel.position.x + (CUBE_SIZE * 1.15) / 2;
+        const leftColumnGroup = new THREE.Group();
+        decorGroup.add(leftColumnGroup);
+        const redMaterial = new THREE.MeshStandardMaterial({
+          color: palette.baseRed,
+          roughness: 0.35,
+          metalness: 0.08,
+        });
+        const whiteMaterial = new THREE.MeshStandardMaterial({
+          color: palette.warmWhite,
+          roughness: 0.35,
+          metalness: 0.08,
+        });
+        const topRedCube = new THREE.Mesh(baseGeometry, redMaterial);
+        topRedCube.castShadow = true;
+        topRedCube.receiveShadow = true;
+        leftColumnGroup.add(topRedCube);
+        const leftColumnDayCubes = [];
+        for (let row = 0; row < WEEKS_VISIBLE; row += 1) {
+          const cube = new THREE.Mesh(baseGeometry, whiteMaterial);
+          cube.castShadow = true;
+          cube.receiveShadow = true;
+          leftColumnGroup.add(cube);
+          leftColumnDayCubes.push(cube);
+        }
 
         const bottomTexture = createBottomPanelTexture();
         const bottomPanelDepth = TILE_DEPTH;
@@ -710,7 +726,8 @@
           baseWidth,
           baseHeight,
           baseDepth,
-          leftPanelRightEdge,
+          leftColumnTopCube: topRedCube,
+          leftColumnDayCubes,
           bottomPanel,
           bottomPanelHeight: CUBE_SIZE * 1.6,
         };
@@ -749,7 +766,7 @@
 
         const cells = getCalendarCells(baseDate);
         const totalWidth = DAYS_PER_WEEK * (CUBE_SIZE + GAP);
-        const totalHeight = WEEKS_VISIBLE * (CUBE_SIZE + GAP);
+        const totalHeight = WEEKS_VISIBLE * (DAY_HEIGHT + GAP);
 
         if (!layoutState || layoutState.width !== totalWidth || layoutState.height !== totalHeight) {
           layoutState = buildDecor(totalWidth, totalHeight, baseDate);
@@ -759,23 +776,33 @@
         calendarGroup.position.z = frontFace - TILE_DEPTH / 2 + 0.02;
         const weekdayGroupZ = frontFace - TILE_DEPTH / 2 + 0.04;
         weekdayGroup.position.z = weekdayGroupZ;
-        let startX = -totalWidth / 2 + (CUBE_SIZE + GAP) / 2;
-        const gridLeftFace = startX - CUBE_SIZE / 2;
-        const leftAlignDelta = layoutState.leftPanelRightEdge - gridLeftFace;
-        startX += leftAlignDelta;
-        const startY = totalHeight / 2 - (CUBE_SIZE + GAP) / 2;
-        const weekdayY = startY + CUBE_SIZE / 2 + GAP + WEEKDAY_CUBE_HEIGHT / 2;
+        const startX = -totalWidth / 2 + (CUBE_SIZE + GAP) / 2;
+        const startY = totalHeight / 2 - (DAY_HEIGHT + GAP) / 2;
+        const weekdayY = startY + DAY_HEIGHT / 2 + GAP + WEEKDAY_CUBE_HEIGHT / 2;
         const topCapHeight = CUBE_SIZE * 0.55;
         const topCapYOffset = CUBE_SIZE * 0.3;
         const topBlockBottom = layoutState.baseHeight / 2 + topCapYOffset - topCapHeight / 2;
         const weekdayRowTarget = topBlockBottom - GAP - WEEKDAY_CUBE_HEIGHT / 2;
-        const gridTopTarget = weekdayRowTarget - (CUBE_SIZE + GAP);
+        const gridTopTarget = weekdayRowTarget - (DAY_HEIGHT + GAP);
         calendarGroup.position.y = gridTopTarget - startY;
         weekdayGroup.position.y = weekdayRowTarget - weekdayY;
-        const gridBottomTarget = gridTopTarget - (WEEKS_VISIBLE - 1) * (CUBE_SIZE + GAP);
+        const gridBottomTarget = gridTopTarget - (WEEKS_VISIBLE - 1) * (DAY_HEIGHT + GAP);
         if (layoutState.bottomPanel) {
           const bottomCubeBottom = gridBottomTarget - CUBE_SIZE / 2;
           layoutState.bottomPanel.position.y = bottomCubeBottom - layoutState.bottomPanelHeight / 2;
+        }
+        const columnZ = calendarGroup.position.z;
+        const leftColumnX = startX - CUBE_SIZE;
+        const calendarYOffset = calendarGroup.position.y;
+        if (layoutState.leftColumnDayCubes) {
+          layoutState.leftColumnDayCubes.forEach((cube, row) => {
+            const y = startY - row * (DAY_HEIGHT + GAP);
+            cube.position.set(leftColumnX, calendarYOffset + y, columnZ);
+          });
+        }
+        if (layoutState.leftColumnTopCube) {
+          const weekdayTop = weekdayGroup.position.y + weekdayY + WEEKDAY_CUBE_HEIGHT / 2;
+          layoutState.leftColumnTopCube.position.set(leftColumnX, weekdayTop - DAY_HEIGHT / 2, columnZ);
         }
         const eventTextures = eventSpecs.map((spec) => createEventBrickTexture({ ...spec, icon: null }));
         const iconTextures = iconSpecs.map((spec) => createEventBrickTexture({ label: '', accent: spec.accent, icon: spec.icon }));
@@ -810,7 +837,7 @@
             const cube = new THREE.Mesh(baseGeometry, material);
             cube.position.set(
               startX + col * (CUBE_SIZE + GAP),
-              startY - row * (CUBE_SIZE + GAP),
+              startY - row * (DAY_HEIGHT + GAP),
               0
             );
             cube.castShadow = true;
@@ -823,7 +850,7 @@
             const cube = new THREE.Mesh(baseGeometry, emptyDayMaterial);
             cube.position.set(
               startX + col * (CUBE_SIZE + GAP),
-              startY - row * (CUBE_SIZE + GAP),
+              startY - row * (DAY_HEIGHT + GAP),
               0
             );
             cube.castShadow = true;
@@ -849,7 +876,7 @@
           const cube = new THREE.Mesh(baseGeometry, material);
           cube.position.set(
             startX + col * (CUBE_SIZE + GAP),
-            startY - row * (CUBE_SIZE + GAP),
+            startY - row * (DAY_HEIGHT + GAP),
             0
           );
           cube.castShadow = true;
