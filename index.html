@@ -303,6 +303,14 @@
         ctx.fill();
       }
 
+      function drawAppleScaled(ctx, x, y, radius, xScale = 1, yScale = 1) {
+        ctx.save();
+        ctx.translate(x, y);
+        ctx.scale(xScale, yScale);
+        drawApple(ctx, 0, 0, radius);
+        ctx.restore();
+      }
+
       function createLeftColumnAppleTexture() {
         const size = 512;
         const canvas = Object.assign(document.createElement('canvas'), {
@@ -312,7 +320,7 @@
         const ctx = canvas.getContext('2d');
         ctx.fillStyle = palette.warmWhite;
         ctx.fillRect(0, 0, size, size);
-        drawApple(ctx, size / 2, size / 2, size * 0.3);
+        drawAppleScaled(ctx, size / 2, size / 2, size * 0.3, 0.5, 1);
         return new THREE.CanvasTexture(canvas);
       }
 
@@ -411,7 +419,7 @@
         const iconCenterY = label ? size * 0.45 : size * 0.5;
         const iconScale = label ? 0.18 : 0.28;
         if (icon === 'apple') {
-          drawApple(ctx, iconCenterX, iconCenterY, size * iconScale);
+          drawAppleScaled(ctx, iconCenterX, iconCenterY, size * iconScale, 0.5, 1);
         } else if (icon === 'bow') {
           drawBow(ctx, iconCenterX, iconCenterY, size * iconScale);
         }
@@ -516,11 +524,8 @@
         const earGeometry = new THREE.ConeGeometry(CUBE_SIZE * 0.18, CUBE_SIZE * 0.3, 16);
         const leftEar = new THREE.Mesh(earGeometry, kittyMaterial);
         const rightEar = new THREE.Mesh(earGeometry, kittyMaterial);
-        const tiltBack = THREE.MathUtils.degToRad(-10);
-        const yawOutward = THREE.MathUtils.degToRad(8);
-        const rollOutward = THREE.MathUtils.degToRad(16);
-        leftEar.rotation.set(tiltBack, -yawOutward, -rollOutward);
-        rightEar.rotation.set(tiltBack, yawOutward, rollOutward);
+        leftEar.rotation.set(0, 0, 0);
+        rightEar.rotation.set(0, 0, 0);
         leftEar.position.set(-CUBE_SIZE * 0.32, CUBE_SIZE * 0.63, -CUBE_SIZE * 0.02);
         rightEar.position.set(CUBE_SIZE * 0.32, CUBE_SIZE * 0.63, -CUBE_SIZE * 0.02);
         kittyGroup.add(leftEar, rightEar);
