@@ -517,7 +517,9 @@
           new THREE.TorusGeometry(CUBE_SIZE * 0.25, CUBE_SIZE * 0.09, 16, 32),
           new THREE.MeshStandardMaterial({ color: palette.bowRed, metalness: 0.2, roughness: 0.35 })
         );
+        bow.rotation.order = 'ZYX';
         bow.rotation.y = Math.PI / 2;
+        bow.rotation.z = THREE.MathUtils.degToRad(-120);
         bow.position.set(CUBE_SIZE * 0.35, CUBE_SIZE * 0.55, 0);
         kittyGroup.add(bow);
 
