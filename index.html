@@ -375,7 +375,7 @@
         return new THREE.CanvasTexture(canvas);
       }
 
-      function createFlipCardTexture() {
+      function createFlipCardTexture(date = new Date()) {
         const size = 1024;
         const canvas = Object.assign(document.createElement('canvas'), {
           width: size,
@@ -392,17 +392,21 @@
           canvas.width - ctx.lineWidth,
           canvas.height - ctx.lineWidth
         );
+        const dayLabel = date.getDate().toString();
+        const monthLabel = date
+          .toLocaleString('default', { month: 'long' })
+          .toUpperCase();
         ctx.fillStyle = palette.numberBlue;
         ctx.font = `700 ${size * 0.7}px 'Baloo 2', 'Nunito', sans-serif`;
         ctx.textAlign = 'center';
-        ctx.fillText('1', canvas.width / 2, canvas.height * 0.45);
+        ctx.fillText(dayLabel, canvas.width / 2, canvas.height * 0.45);
         ctx.fillStyle = palette.accentBlue;
         ctx.font = `600 ${size * 0.22}px 'Nunito', sans-serif`;
-        ctx.fillText('JANUARY', canvas.width / 2, canvas.height * 0.75);
+        ctx.fillText(monthLabel, canvas.width / 2, canvas.height * 0.75);
         return new THREE.CanvasTexture(canvas);
       }
 
-      function buildDecor(width, height) {
+      function buildDecor(width, height, date) {
         decorGroup.clear();
         const paddingX = CUBE_SIZE * 0.9;
         const paddingY = CUBE_SIZE * 1.4;
@@ -500,7 +504,7 @@
           decorGroup.add(plane);
         });
 
-        const flipTexture = createFlipCardTexture();
+        const flipTexture = createFlipCardTexture(date);
         const flipMaterial = new THREE.MeshBasicMaterial({ map: flipTexture, side: THREE.DoubleSide });
         const flipCard = new THREE.Mesh(new THREE.PlaneGeometry(CUBE_SIZE * 1.6, CUBE_SIZE * 2.2), flipMaterial);
         flipCard.position.set(baseWidth / 2 - CUBE_SIZE * 1.7, baseHeight / 2 + CUBE_SIZE * 1.7, 0.25);
@@ -647,7 +651,7 @@
         const totalHeight = WEEKS_VISIBLE * (CUBE_SIZE + GAP);
 
         if (!layoutState || layoutState.width !== totalWidth || layoutState.height !== totalHeight) {
-          layoutState = buildDecor(totalWidth, totalHeight);
+          layoutState = buildDecor(totalWidth, totalHeight, baseDate);
         }
 
         const frontFace = layoutState.frontFace;
