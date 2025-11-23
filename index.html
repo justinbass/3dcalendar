@@ -611,12 +611,14 @@
         const baseWidth = width + paddingX * 2;
         const baseHeight = height + paddingY;
 
+        const topCapWidth = width + CUBE_SIZE - GAP;
         const topCapMaterial = new THREE.MeshStandardMaterial({ color: '#f54d52', roughness: 0.4 });
         const topCap = new THREE.Mesh(
-          new THREE.BoxGeometry(baseWidth, CUBE_SIZE * 0.55, TILE_DEPTH),
+          new THREE.BoxGeometry(topCapWidth, CUBE_SIZE * 0.55, TILE_DEPTH),
           topCapMaterial
         );
         topCap.position.y = baseHeight / 2 + CUBE_SIZE * 0.3;
+        topCap.position.x = -CUBE_SIZE / 2;
         topCap.castShadow = true;
         topCap.receiveShadow = true;
         decorGroup.add(topCap);
@@ -693,12 +695,18 @@
         const flipTexture = createFlipCardTexture(date);
         const flipMaterial = new THREE.MeshBasicMaterial({ map: flipTexture, side: THREE.DoubleSide });
         const flipCard = new THREE.Mesh(new THREE.PlaneGeometry(CUBE_SIZE * 1.6, CUBE_SIZE * 2.2), flipMaterial);
-        flipCard.position.set(baseWidth / 2 - CUBE_SIZE * 2.4, baseHeight / 2 + CUBE_SIZE * 1.7, 0.25);
+        const topBarTop = baseHeight / 2 + CUBE_SIZE * 0.3 + CUBE_SIZE * 0.55 * 0.5 + CUBE_SIZE * 0.25;
+        const topCapLeft = -topCapWidth / 2;
+        const topCapRight = topCapWidth / 2;
+        const targetX = topCapLeft + (topCapRight - topCapLeft) * 0.7;
+        const flipCardVerticalOffset = CUBE_SIZE * 0.9;
+        flipCard.position.set(targetX, topBarTop + flipCardVerticalOffset, 0.25);
         flipCard.rotation.y = Math.PI * -0.04;
         decorGroup.add(flipCard);
 
         const kittyGroup = new THREE.Group();
-        kittyGroup.position.set(baseWidth / 2 - CUBE_SIZE * 0.8, baseHeight / 2 + CUBE_SIZE * 1.4, -CUBE_SIZE * 0.35);
+        const kittyTargetX = topCapLeft + (topCapRight - topCapLeft) * 0.9;
+        kittyGroup.position.set(kittyTargetX, topBarTop + CUBE_SIZE * 0.3, -CUBE_SIZE * 0.35);
         if (kittyTexture && kittyTexture.image) {
           addHiDefKitty(kittyGroup);
         } else {
