@@ -95,6 +95,21 @@
       renderer.shadowMap.type = THREE.PCFSoftShadowMap;
       container.appendChild(renderer.domElement);
 
+      const textureLoader = new THREE.TextureLoader();
+      textureLoader.load(
+        'image.png',
+        (texture) => {
+          texture.colorSpace = THREE.SRGBColorSpace;
+          texture.anisotropy = renderer.capabilities.getMaxAnisotropy();
+          kittyTexture = texture;
+          createCalendar(calendarDate);
+        },
+        undefined,
+        (error) => {
+          console.warn('Unable to load hi-def kitty texture:', error);
+        }
+      );
+
       const controls = new OrbitControls(camera, renderer.domElement);
       controls.enableDamping = true;
       controls.dampingFactor = 0.08;
@@ -134,6 +149,9 @@
         kittyWhite: '#fff7fb',
         kittyNose: '#ffcb6b',
       };
+
+      let calendarDate = new Date();
+      let kittyTexture = null;
 
       const calendarRig = new THREE.Group();
       scene.add(calendarRig);
@@ -406,6 +424,152 @@
         return new THREE.CanvasTexture(canvas);
       }
 
+      function addClassicKitty(kittyGroup) {
+        const kittyMaterial = new THREE.MeshStandardMaterial({
+          color: palette.kittyWhite,
+          roughness: 0.35,
+          metalness: 0.05,
+        });
+        const head = new THREE.Mesh(new THREE.SphereGeometry(CUBE_SIZE * 0.55, 32, 32), kittyMaterial);
+        head.scale.y = 0.85;
+        head.position.y = CUBE_SIZE * 0.2;
+        kittyGroup.add(head);
+
+        const body = new THREE.Mesh(
+          new THREE.BoxGeometry(CUBE_SIZE * 0.65, CUBE_SIZE * 0.6, CUBE_SIZE * 0.4),
+          new THREE.MeshStandardMaterial({ color: palette.accentBlue, metalness: 0.05, roughness: 0.5 })
+        );
+        body.position.set(0, -CUBE_SIZE * 0.2, 0);
+        kittyGroup.add(body);
+
+        const nose = new THREE.Mesh(
+          new THREE.SphereGeometry(CUBE_SIZE * 0.08, 16, 16),
+          new THREE.MeshStandardMaterial({ color: palette.kittyNose })
+        );
+        nose.position.set(0, CUBE_SIZE * 0.25, CUBE_SIZE * 0.45);
+        kittyGroup.add(nose);
+
+        const eyeGeometry = new THREE.SphereGeometry(CUBE_SIZE * 0.07, 16, 16);
+        const eyeMaterial = new THREE.MeshStandardMaterial({ color: palette.accentBlue, roughness: 0.3 });
+        const leftEye = new THREE.Mesh(eyeGeometry, eyeMaterial);
+        const rightEye = new THREE.Mesh(eyeGeometry, eyeMaterial);
+        leftEye.scale.y = 1.35;
+        rightEye.scale.y = 1.35;
+        leftEye.position.set(-CUBE_SIZE * 0.23, CUBE_SIZE * 0.28, CUBE_SIZE * 0.48);
+        rightEye.position.set(CUBE_SIZE * 0.23, CUBE_SIZE * 0.28, CUBE_SIZE * 0.48);
+        kittyGroup.add(leftEye, rightEye);
+
+        const whiskerGeometry = new THREE.BoxGeometry(CUBE_SIZE * 0.42, CUBE_SIZE * 0.02, CUBE_SIZE * 0.02);
+        const whiskerMaterial = new THREE.MeshStandardMaterial({ color: '#d7cdd3', roughness: 0.6 });
+        for (let i = 0; i < 2; i += 1) {
+          const whisker = new THREE.Mesh(whiskerGeometry, whiskerMaterial);
+          whisker.position.set(-CUBE_SIZE * 0.42, CUBE_SIZE * (0.18 - i * 0.08), CUBE_SIZE * 0.35);
+          whisker.rotation.z = THREE.MathUtils.degToRad(i === 0 ? -5 : 8);
+          kittyGroup.add(whisker);
+          const mirror = whisker.clone();
+          mirror.position.x *= -1;
+          mirror.rotation.z *= -1;
+          kittyGroup.add(mirror);
+        }
+
+        const bow = new THREE.Mesh(
+          new THREE.TorusGeometry(CUBE_SIZE * 0.25, CUBE_SIZE * 0.09, 16, 32),
+          new THREE.MeshStandardMaterial({ color: palette.bowRed, metalness: 0.2, roughness: 0.35 })
+        );
+        bow.rotation.y = Math.PI / 2;
+        bow.position.set(CUBE_SIZE * 0.35, CUBE_SIZE * 0.55, 0);
+        kittyGroup.add(bow);
+
+        const earGeometry = new THREE.ConeGeometry(CUBE_SIZE * 0.18, CUBE_SIZE * 0.3, 16);
+        const leftEar = new THREE.Mesh(earGeometry, kittyMaterial);
+        const rightEar = new THREE.Mesh(earGeometry, kittyMaterial);
+        const tiltBack = THREE.MathUtils.degToRad(-10);
+        const yawOutward = THREE.MathUtils.degToRad(8);
+        const rollOutward = THREE.MathUtils.degToRad(16);
+        leftEar.rotation.set(tiltBack, -yawOutward, -rollOutward);
+        rightEar.rotation.set(tiltBack, yawOutward, rollOutward);
+        leftEar.position.set(-CUBE_SIZE * 0.32, CUBE_SIZE * 0.63, -CUBE_SIZE * 0.02);
+        rightEar.position.set(CUBE_SIZE * 0.32, CUBE_SIZE * 0.63, -CUBE_SIZE * 0.02);
+        kittyGroup.add(leftEar, rightEar);
+      }
+
+      function addHiDefKitty(kittyGroup) {
+        if (!kittyTexture || !kittyTexture.image) {
+          addClassicKitty(kittyGroup);
+          return;
+        }
+
+        const aspect = kittyTexture.image.width
+          ? kittyTexture.image.height / kittyTexture.image.width
+          : 1;
+        const displayWidth = CUBE_SIZE * 2.6;
+        const displayHeight = displayWidth * aspect;
+        const frameDepth = CUBE_SIZE * 0.15;
+
+        const stand = new THREE.Mesh(
+          new THREE.CylinderGeometry(displayWidth * 0.2, displayWidth * 0.26, CUBE_SIZE * 0.6, 32),
+          new THREE.MeshStandardMaterial({ color: palette.accentBlue, metalness: 0.3, roughness: 0.35 })
+        );
+        stand.position.set(0, -displayHeight / 2 - CUBE_SIZE * 0.45, -frameDepth * 0.35);
+        kittyGroup.add(stand);
+
+        const accentRing = new THREE.Mesh(
+          new THREE.TorusGeometry(displayWidth * 0.32, CUBE_SIZE * 0.05, 24, 48),
+          new THREE.MeshStandardMaterial({ color: '#fcd0e0', metalness: 0.12, roughness: 0.3 })
+        );
+        accentRing.rotation.x = Math.PI / 2;
+        accentRing.position.set(0, -displayHeight / 2 - CUBE_SIZE * 0.2, frameDepth * 0.1);
+        kittyGroup.add(accentRing);
+
+        const frame = new THREE.Mesh(
+          new THREE.BoxGeometry(displayWidth * 1.08, displayHeight * 1.12, frameDepth),
+          new THREE.MeshStandardMaterial({ color: palette.warmWhite, metalness: 0.25, roughness: 0.35 })
+        );
+        frame.position.set(0, 0, -frameDepth * 0.4);
+        kittyGroup.add(frame);
+
+        const inset = new THREE.Mesh(
+          new THREE.BoxGeometry(displayWidth * 1.02, displayHeight * 1.06, frameDepth * 0.6),
+          new THREE.MeshStandardMaterial({ color: '#ffd4e1', metalness: 0.12, roughness: 0.4 })
+        );
+        inset.position.set(0, 0, -frameDepth * 0.15);
+        kittyGroup.add(inset);
+
+        const artPanel = new THREE.Mesh(
+          new THREE.PlaneGeometry(displayWidth, displayHeight),
+          new THREE.MeshStandardMaterial({
+            map: kittyTexture,
+            transparent: true,
+            side: THREE.DoubleSide,
+            roughness: 0.18,
+            metalness: 0.05,
+          })
+        );
+        artPanel.position.set(0, 0, frameDepth * 0.35);
+        kittyGroup.add(artPanel);
+
+        const acrylic = new THREE.Mesh(
+          new THREE.PlaneGeometry(displayWidth, displayHeight),
+          new THREE.MeshPhysicalMaterial({
+            transparent: true,
+            opacity: 0.35,
+            roughness: 0.05,
+            transmission: 0.65,
+            thickness: 0.01,
+          })
+        );
+        acrylic.position.set(0, 0, frameDepth * 0.4);
+        kittyGroup.add(acrylic);
+
+        const spotlight = new THREE.SpotLight(0xff9ac5, 0.8, CUBE_SIZE * 6, Math.PI / 6, 0.3);
+        spotlight.position.set(0, displayHeight * 0.6, frameDepth * 2);
+        spotlight.target.position.set(0, 0, 0);
+        kittyGroup.add(spotlight);
+        kittyGroup.add(spotlight.target);
+
+        kittyGroup.rotation.y = THREE.MathUtils.degToRad(-6);
+      }
+
       function buildDecor(width, height, date) {
         decorGroup.clear();
         const paddingX = CUBE_SIZE * 0.9;
@@ -530,70 +694,11 @@
 
         const kittyGroup = new THREE.Group();
         kittyGroup.position.set(baseWidth / 2 - CUBE_SIZE * 0.8, baseHeight / 2 + CUBE_SIZE * 1.4, -CUBE_SIZE * 0.35);
-
-        const kittyMaterial = new THREE.MeshStandardMaterial({
-          color: palette.kittyWhite,
-          roughness: 0.35,
-          metalness: 0.05,
-        });
-        const head = new THREE.Mesh(new THREE.SphereGeometry(CUBE_SIZE * 0.55, 32, 32), kittyMaterial);
-        head.scale.y = 0.85;
-        head.position.y = CUBE_SIZE * 0.2;
-        kittyGroup.add(head);
-
-        const body = new THREE.Mesh(
-          new THREE.BoxGeometry(CUBE_SIZE * 0.65, CUBE_SIZE * 0.6, CUBE_SIZE * 0.4),
-          new THREE.MeshStandardMaterial({ color: palette.accentBlue, metalness: 0.05, roughness: 0.5 })
-        );
-        body.position.set(0, -CUBE_SIZE * 0.2, 0);
-        kittyGroup.add(body);
-
-        const nose = new THREE.Mesh(
-          new THREE.SphereGeometry(CUBE_SIZE * 0.08, 16, 16),
-          new THREE.MeshStandardMaterial({ color: palette.kittyNose })
-        );
-        nose.position.set(0, CUBE_SIZE * 0.25, CUBE_SIZE * 0.45);
-        kittyGroup.add(nose);
-
-        const eyeGeometry = new THREE.SphereGeometry(CUBE_SIZE * 0.07, 16, 16);
-        const eyeMaterial = new THREE.MeshStandardMaterial({ color: palette.accentBlue, roughness: 0.3 });
-        const leftEye = new THREE.Mesh(eyeGeometry, eyeMaterial);
-        const rightEye = new THREE.Mesh(eyeGeometry, eyeMaterial);
-        leftEye.scale.y = 1.35;
-        rightEye.scale.y = 1.35;
-        leftEye.position.set(-CUBE_SIZE * 0.23, CUBE_SIZE * 0.28, CUBE_SIZE * 0.48);
-        rightEye.position.set(CUBE_SIZE * 0.23, CUBE_SIZE * 0.28, CUBE_SIZE * 0.48);
-        kittyGroup.add(leftEye, rightEye);
-
-        const whiskerGeometry = new THREE.BoxGeometry(CUBE_SIZE * 0.42, CUBE_SIZE * 0.02, CUBE_SIZE * 0.02);
-        const whiskerMaterial = new THREE.MeshStandardMaterial({ color: '#d7cdd3', roughness: 0.6 });
-        for (let i = 0; i < 2; i += 1) {
-          const whisker = new THREE.Mesh(whiskerGeometry, whiskerMaterial);
-          whisker.position.set(-CUBE_SIZE * 0.42, CUBE_SIZE * (0.18 - i * 0.08), CUBE_SIZE * 0.35);
-          whisker.rotation.z = THREE.MathUtils.degToRad(i === 0 ? -5 : 8);
-          kittyGroup.add(whisker);
-          const mirror = whisker.clone();
-          mirror.position.x *= -1;
-          mirror.rotation.z *= -1;
-          kittyGroup.add(mirror);
+        if (kittyTexture && kittyTexture.image) {
+          addHiDefKitty(kittyGroup);
+        } else {
+          addClassicKitty(kittyGroup);
         }
-
-        const bow = new THREE.Mesh(
-          new THREE.TorusGeometry(CUBE_SIZE * 0.25, CUBE_SIZE * 0.09, 16, 32),
-          new THREE.MeshStandardMaterial({ color: palette.bowRed, metalness: 0.2, roughness: 0.35 })
-        );
-        bow.rotation.y = Math.PI / 2;
-        bow.position.set(CUBE_SIZE * 0.35, CUBE_SIZE * 0.55, 0);
-        kittyGroup.add(bow);
-
-        const earGeometry = new THREE.ConeGeometry(CUBE_SIZE * 0.18, CUBE_SIZE * 0.3, 16);
-        const leftEar = new THREE.Mesh(earGeometry, kittyMaterial);
-        const rightEar = new THREE.Mesh(earGeometry, kittyMaterial);
-        leftEar.rotation.z = Math.PI * 0.9;
-        rightEar.rotation.z = Math.PI * -0.9;
-        leftEar.position.set(-CUBE_SIZE * 0.3, CUBE_SIZE * 0.6, -CUBE_SIZE * 0.1);
-        rightEar.position.set(CUBE_SIZE * 0.3, CUBE_SIZE * 0.6, -CUBE_SIZE * 0.1);
-        kittyGroup.add(leftEar, rightEar);
 
         kittyGroup.traverse((child) => {
           if (child.isMesh) {
@@ -643,6 +748,7 @@
       }
 
       function createCalendar(baseDate = new Date()) {
+        calendarDate = baseDate;
         calendarGroup.clear();
         weekdayGroup.clear();
 
@@ -702,7 +808,7 @@
         });
       }
 
-      createCalendar(new Date());
+      createCalendar(calendarDate);
 
       window.addEventListener('resize', onResize);
 
