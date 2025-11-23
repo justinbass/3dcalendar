@@ -151,8 +151,12 @@
       };
 
       const eventSpecs = [
-        { label: 'Birthday', accent: '#ffb7d5', icon: 'apple' },
-        { label: 'Travel', accent: '#c4e1ff', icon: 'bow' },
+        { label: 'Birthday', accent: '#ffb7d5', labelScale: 0.15 },
+        { label: 'Travel', accent: '#c4e1ff', labelScale: 0.18 },
+      ];
+      const iconSpecs = [
+        { accent: '#ffdbe8', icon: 'apple' },
+        { accent: '#d5e9ff', icon: 'bow' },
       ];
 
       let calendarDate = new Date();
@@ -376,7 +380,7 @@
         return new THREE.CanvasTexture(canvas);
       }
 
-      function createEventBrickTexture({ label, accent, icon }) {
+      function createEventBrickTexture({ label, accent, icon, labelScale = 0.18 }) {
         const size = 512;
         const canvas = Object.assign(document.createElement('canvas'), {
           width: size,
@@ -388,16 +392,22 @@
         ctx.strokeStyle = accent;
         ctx.lineWidth = size * 0.1;
         ctx.strokeRect(ctx.lineWidth / 2, ctx.lineWidth / 2, size - ctx.lineWidth, size - ctx.lineWidth);
+        const iconCenterX = label ? size * 0.2 : size * 0.5;
+        const iconCenterY = label ? size * 0.45 : size * 0.5;
+        const iconScale = label ? 0.18 : 0.28;
         if (icon === 'apple') {
-          drawApple(ctx, size * 0.2, size * 0.5, size * 0.18);
+          drawApple(ctx, iconCenterX, iconCenterY, size * iconScale);
         } else if (icon === 'bow') {
-          drawBow(ctx, size * 0.2, size * 0.35, size * 0.25);
+          drawBow(ctx, iconCenterX, iconCenterY, size * iconScale);
+        }
+        if (!label) {
+          return new THREE.CanvasTexture(canvas);
         }
         ctx.fillStyle = palette.numberBlue;
-        ctx.font = `700 ${size * 0.22}px 'Nunito', 'Baloo 2', sans-serif`;
+        ctx.font = `700 ${size * labelScale}px 'Nunito', 'Baloo 2', sans-serif`;
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
-        ctx.fillText(label.toUpperCase(), size * 0.62, size * 0.55);
+        ctx.fillText(label.toUpperCase(), size / 2, size * 0.57);
         return new THREE.CanvasTexture(canvas);
       }
 
@@ -745,23 +755,31 @@
         weekdayGroup.position.z = frontFace + 0.04;
         const startX = -totalWidth / 2 + (CUBE_SIZE + GAP) / 2;
         const startY = totalHeight / 2 - (CUBE_SIZE + GAP) / 2;
-        const eventTextures = eventSpecs.map(createEventBrickTexture);
+        const eventTextures = eventSpecs.map((spec) => createEventBrickTexture({ ...spec, icon: null }));
+        const iconTextures = iconSpecs.map((spec) => createEventBrickTexture({ label: '', accent: spec.accent, icon: spec.icon }));
         const lastActiveIndex = cells.reduce((acc, cell, idx) => (cell.inMonth ? idx : acc), -1);
-        const eventSlots = [];
-        eventSpecs.forEach((_, specIdx) => {
-          const eventIdx = lastActiveIndex + 1 + specIdx;
-          if (eventIdx < cells.length) {
-            eventSlots.push({ idx: eventIdx, texture: eventTextures[specIdx] });
+        const extraSlots = new Map();
+        let nextIdx = lastActiveIndex + 1;
+        eventTextures.forEach((texture) => {
+          if (nextIdx < cells.length) {
+            extraSlots.set(nextIdx, texture);
+            nextIdx += 1;
+          }
+        });
+        iconTextures.forEach((texture) => {
+          if (nextIdx < cells.length) {
+            extraSlots.set(nextIdx, texture);
+            nextIdx += 1;
           }
         });
 
         cells.forEach((cell, idx) => {
           const col = idx % DAYS_PER_WEEK;
           const row = Math.floor(idx / DAYS_PER_WEEK);
-          const eventSlot = eventSlots.find((slot) => slot.idx === idx);
-          if (eventSlot) {
+          const extraTexture = extraSlots.get(idx);
+          if (extraTexture) {
             const material = new THREE.MeshStandardMaterial({
-              map: eventSlot.texture,
+              map: extraTexture,
               color: 0xffffff,
               metalness: 0.05,
               roughness: 0.6,
