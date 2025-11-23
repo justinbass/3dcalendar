@@ -1,0 +1,4 @@
+- Install codex, npm, nodejs
+- npm install
+- npm start
+- codex: run chrome-devtools mcp with http://127.0.0.1:12345/index.html
