@@ -301,6 +301,19 @@
         ctx.fill();
       }
 
+      function createLeftColumnAppleTexture() {
+        const size = 512;
+        const canvas = Object.assign(document.createElement('canvas'), {
+          width: size,
+          height: size,
+        });
+        const ctx = canvas.getContext('2d');
+        ctx.fillStyle = palette.warmWhite;
+        ctx.fillRect(0, 0, size, size);
+        drawApple(ctx, size / 2, size / 2, size * 0.3);
+        return new THREE.CanvasTexture(canvas);
+      }
+
       function drawBow(ctx, x, y, size) {
         ctx.fillStyle = palette.bowRed;
         ctx.strokeStyle = '#a01120';
@@ -360,24 +373,6 @@
         ctx.stroke();
 
         drawBow(ctx, x + size * 0.55, y - size * 0.45, size * 0.45);
-      }
-
-      function createStripePanelTexture() {
-        const canvas = Object.assign(document.createElement('canvas'), {
-          width: 512,
-          height: 1024,
-        });
-        const ctx = canvas.getContext('2d');
-        ctx.fillStyle = palette.baseRed;
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
-        const stripeHeight = canvas.height / 6;
-        for (let i = 0; i < 3; i += 1) {
-          const y = stripeHeight * (1 + i * 1.8);
-          ctx.fillStyle = '#fff';
-          ctx.fillRect(0, y, canvas.width, stripeHeight);
-          drawApple(ctx, canvas.width / 2, y + stripeHeight * 0.55, stripeHeight * 0.4);
-        }
-        return new THREE.CanvasTexture(canvas);
       }
 
       function createBottomPanelTexture() {
@@ -660,8 +655,9 @@
           roughness: 0.35,
           metalness: 0.08,
         });
-        const whiteMaterial = new THREE.MeshStandardMaterial({
-          color: palette.warmWhite,
+        const appleTexture = createLeftColumnAppleTexture();
+        const appleMaterial = new THREE.MeshStandardMaterial({
+          map: appleTexture,
           roughness: 0.35,
           metalness: 0.08,
         });
@@ -671,7 +667,8 @@
         leftColumnGroup.add(topRedCube);
         const leftColumnDayCubes = [];
         for (let row = 0; row < WEEKS_VISIBLE; row += 1) {
-          const cube = new THREE.Mesh(baseGeometry, whiteMaterial);
+          const material = row % 2 === 0 ? appleMaterial : redMaterial;
+          const cube = new THREE.Mesh(baseGeometry, material);
           cube.castShadow = true;
           cube.receiveShadow = true;
           leftColumnGroup.add(cube);
