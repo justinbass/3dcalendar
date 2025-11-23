@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>3D Calendar • Three.js</title>
+    <style>
+      :root {
+        font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+        background: radial-gradient(circle at top, #111, #050505 60%);
+        color: #e4e4e4;
+      }
+
+      body {
+        margin: 0;
+        min-height: 100vh;
+        display: flex;
+        flex-direction: column;
+      }
+
+      #scene-container {
+        flex: 1;
+        position: relative;
+      }
+
+      canvas {
+        display: block;
+      }
+
+      .overlay {
+        position: absolute;
+        inset: 1rem 1rem auto auto;
+        display: flex;
+        flex-direction: column;
+        gap: 0.35rem;
+        text-align: right;
+      }
+
+      .overlay span {
+        font-size: 0.95rem;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: rgba(255, 255, 255, 0.85);
+      }
+
+      .overlay small {
+        font-size: 0.75rem;
+        letter-spacing: 0.15em;
+        color: rgba(255, 255, 255, 0.6);
+      }
+    </style>
+  </head>
+  <body>
+    <div id="scene-container">
+      <div class="overlay">
+        <span id="month-label"></span>
+        <small>Drag to rotate · Scroll to zoom</small>
+      </div>
+    </div>
+
+    <script type="importmap">
+      {
+        "imports": {
+          "three": "https://cdn.jsdelivr.net/npm/three@0.161.0/build/three.module.js",
+          "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.161.0/examples/jsm/"
+        }
+      }
+    </script>
+
+    <script type="module">
+      import * as THREE from 'three';
+      import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+      const container = document.getElementById('scene-container');
+      const scene = new THREE.Scene();
+      scene.background = new THREE.Color(0x040404);
+
+      const camera = new THREE.PerspectiveCamera(
+        45,
+        container.clientWidth / container.clientHeight,
+        0.1,
+        100
+      );
+      camera.position.set(6, 5.5, 7);
+
+      const renderer = new THREE.WebGLRenderer({ antialias: true });
+      renderer.setPixelRatio(window.devicePixelRatio);
+      renderer.setSize(container.clientWidth, container.clientHeight);
+      container.appendChild(renderer.domElement);
+
+      const controls = new OrbitControls(camera, renderer.domElement);
+      controls.enableDamping = true;
+      controls.dampingFactor = 0.08;
+      controls.target.set(0, 0, 0);
+      controls.minDistance = 4;
+      controls.maxDistance = 14;
+      controls.update();
+
+      const ambient = new THREE.AmbientLight(0xffffff, 0.55);
+      scene.add(ambient);
+
+      const dirLight = new THREE.DirectionalLight(0xffffff, 1.1);
+      dirLight.position.set(6, 12, 10);
+      scene.add(dirLight);
+
+      const monthLabel = document.getElementById('month-label');
+
+      const DAYS_PER_WEEK = 7;
+      const WEEKS_VISIBLE = 5;
+      const CUBE_SIZE = 1.4;
+      const GAP = 0.4;
+      const calendarRig = new THREE.Group();
+      scene.add(calendarRig);
+      const calendarGroup = new THREE.Group();
+      const weekdayGroup = new THREE.Group();
+      calendarRig.add(calendarGroup);
+      calendarRig.add(weekdayGroup);
+
+      const baseGeometry = new THREE.BoxGeometry(CUBE_SIZE, CUBE_SIZE, CUBE_SIZE);
+
+      const floor = new THREE.Mesh(
+        new THREE.PlaneGeometry(16, 12),
+        new THREE.MeshStandardMaterial({
+          color: 0x080808,
+          metalness: 0.2,
+          roughness: 0.8,
+        })
+      );
+      floor.rotation.x = -Math.PI / 2;
+      floor.position.y = -CUBE_SIZE;
+      scene.add(floor);
+
+      const weekdays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+
+      function toMondayIndex(day) {
+        return (day + 6) % 7; // convert Sunday(0) to 6, Monday(1) -> 0
+      }
+
+      function padTextureText(ctx, label, size) {
+        ctx.fillText(label, size / 2, size * 0.6);
+      }
+
+      function createDayTexture({ label, active, highlight }) {
+        const size = 512;
+        const canvas = Object.assign(document.createElement('canvas'), {
+          width: size,
+          height: size,
+        });
+        const ctx = canvas.getContext('2d');
+
+        const background = highlight ? '#f37435' : active ? '#141414' : '#1b1b1b';
+        const border = highlight ? '#ffd7c2' : active ? '#2c2c2c' : '#2a2a2a';
+
+        ctx.fillStyle = background;
+        ctx.strokeStyle = border;
+        ctx.lineWidth = size * 0.03;
+        ctx.fillRect(0, 0, size, size);
+        ctx.strokeRect(
+          ctx.lineWidth / 2,
+          ctx.lineWidth / 2,
+          size - ctx.lineWidth,
+          size - ctx.lineWidth
+        );
+
+        ctx.fillStyle = highlight ? '#080808' : '#f2f2f2';
+        ctx.font = `bold ${size * 0.5}px 'Inter', 'Segoe UI', sans-serif`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        padTextureText(ctx, label, size);
+
+        return new THREE.CanvasTexture(canvas);
+      }
+
+      function createWeekdayTexture(label) {
+        const size = 512;
+        const canvas = Object.assign(document.createElement('canvas'), {
+          width: size,
+          height: size,
+        });
+        const ctx = canvas.getContext('2d');
+        ctx.fillStyle = '#0c0c0c';
+        ctx.fillRect(0, 0, size, size);
+        ctx.fillStyle = '#e0e0e0';
+        ctx.font = `600 ${size * 0.35}px 'Inter', 'Segoe UI', sans-serif`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(label, size / 2, size / 2);
+        return new THREE.CanvasTexture(canvas);
+      }
+
+      function getCalendarCells(baseDate = new Date()) {
+        const today = new Date(baseDate.getFullYear(), baseDate.getMonth(), baseDate.getDate());
+        const firstOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
+        const startOffset = toMondayIndex(firstOfMonth.getDay());
+        const gridStart = new Date(firstOfMonth);
+        gridStart.setDate(firstOfMonth.getDate() - startOffset);
+
+        monthLabel.textContent = today.toLocaleString('default', {
+          month: 'long',
+          year: 'numeric',
+        });
+
+        const cells = [];
+        for (let i = 0; i < DAYS_PER_WEEK * WEEKS_VISIBLE; i += 1) {
+          const date = new Date(gridStart);
+          date.setDate(gridStart.getDate() + i);
+          cells.push({
+            date,
+            inMonth: date.getMonth() === today.getMonth(),
+            isToday: date.getTime() === today.getTime(),
+          });
+        }
+        return cells;
+      }
+
+      function createCalendar(baseDate = new Date()) {
+        calendarGroup.clear();
+        weekdayGroup.clear();
+
+        const cells = getCalendarCells(baseDate);
+        const totalWidth = DAYS_PER_WEEK * (CUBE_SIZE + GAP);
+        const totalHeight = WEEKS_VISIBLE * (CUBE_SIZE + GAP);
+        const startX = -totalWidth / 2 + (CUBE_SIZE + GAP) / 2;
+        const startY = totalHeight / 2 - (CUBE_SIZE + GAP) / 2;
+
+        cells.forEach((cell, idx) => {
+          const col = idx % DAYS_PER_WEEK;
+          const row = Math.floor(idx / DAYS_PER_WEEK);
+          const texture = createDayTexture({
+            label: cell.date.getDate().toString(),
+            active: cell.inMonth,
+            highlight: cell.isToday,
+          });
+
+          const material = new THREE.MeshStandardMaterial({
+            map: texture,
+            color: cell.inMonth ? 0xffffff : 0x888888,
+            metalness: 0.1,
+            roughness: 0.35,
+          });
+
+          const cube = new THREE.Mesh(baseGeometry, material);
+          cube.position.set(
+            startX + col * (CUBE_SIZE + GAP),
+            startY - row * (CUBE_SIZE + GAP),
+            0
+          );
+          cube.castShadow = true;
+          cube.receiveShadow = true;
+          calendarGroup.add(cube);
+        });
+
+        // Weekday labels sit slightly above cubes
+        weekdays.forEach((day, idx) => {
+          const spriteMap = createWeekdayTexture(day);
+          const material = new THREE.MeshBasicMaterial({ map: spriteMap, transparent: true });
+          const plane = new THREE.Mesh(new THREE.PlaneGeometry(CUBE_SIZE, CUBE_SIZE * 0.4), material);
+          plane.position.set(
+            startX + idx * (CUBE_SIZE + GAP),
+            startY + CUBE_SIZE,
+            0
+          );
+          weekdayGroup.add(plane);
+        });
+      }
+
+      createCalendar(new Date());
+
+      window.addEventListener('resize', onResize);
+
+      function onResize() {
+        const { clientWidth, clientHeight } = container;
+        camera.aspect = clientWidth / clientHeight;
+        camera.updateProjectionMatrix();
+        renderer.setSize(clientWidth, clientHeight);
+      }
+
+      function animate() {
+        requestAnimationFrame(animate);
+        calendarRig.rotation.y += 0.0005;
+        calendarRig.rotation.x = THREE.MathUtils.lerp(calendarRig.rotation.x, 0.1, 0.02);
+        controls.update();
+        renderer.render(scene, camera);
+      }
+
+      animate();
+    </script>
+  </body>
+</html>
