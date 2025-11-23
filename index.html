@@ -85,7 +85,7 @@
         0.1,
         100
       );
-      camera.position.set(18, 12, 24);
+      camera.position.set(22, 16, 32);
 
       const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
       renderer.setClearColor(0x000000, 0);
@@ -419,8 +419,8 @@
         ctx.textAlign = 'center';
         ctx.fillText(dayLabel, canvas.width / 2, canvas.height * 0.45);
         ctx.fillStyle = palette.accentBlue;
-        ctx.font = `600 ${size * 0.22}px 'Nunito', sans-serif`;
-        ctx.fillText(monthLabel, canvas.width / 2, canvas.height * 0.75);
+        ctx.font = `600 ${size * 0.18}px 'Nunito', sans-serif`;
+        ctx.fillText(monthLabel, canvas.width / 2, canvas.height * 0.78);
         return new THREE.CanvasTexture(canvas);
       }
 
@@ -663,7 +663,7 @@
           plane.position.set(
             -width / 2 + CUBE_SIZE * 2.2 + idx * CUBE_SIZE * 3,
             -height / 2 + CUBE_SIZE * 0.6,
-            frontFace + 0.02
+            frontFace + CUBE_SIZE * 0.2
           );
           decorGroup.add(plane);
         });
@@ -671,19 +671,9 @@
         const flipTexture = createFlipCardTexture(date);
         const flipMaterial = new THREE.MeshBasicMaterial({ map: flipTexture, side: THREE.DoubleSide });
         const flipCard = new THREE.Mesh(new THREE.PlaneGeometry(CUBE_SIZE * 1.6, CUBE_SIZE * 2.2), flipMaterial);
-        flipCard.position.set(baseWidth / 2 - CUBE_SIZE * 1.7, baseHeight / 2 + CUBE_SIZE * 1.7, 0.25);
+        flipCard.position.set(baseWidth / 2 - CUBE_SIZE * 2.4, baseHeight / 2 + CUBE_SIZE * 1.7, 0.25);
         flipCard.rotation.y = Math.PI * -0.04;
         decorGroup.add(flipCard);
-
-        const ring = new THREE.Mesh(
-          new THREE.TorusGeometry(CUBE_SIZE * 0.45, CUBE_SIZE * 0.05, 14, 28),
-          new THREE.MeshStandardMaterial({ color: '#d2d2d2', metalness: 0.8, roughness: 0.2 })
-        );
-        ring.rotation.x = Math.PI / 2;
-        ring.position.copy(flipCard.position).add(new THREE.Vector3(0, CUBE_SIZE * 0.6, -0.1));
-        ring.castShadow = true;
-        ring.receiveShadow = true;
-        decorGroup.add(ring);
 
         const weekdayBar = new THREE.Mesh(
           new THREE.PlaneGeometry(width, CUBE_SIZE * 0.85),
