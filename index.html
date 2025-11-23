@@ -152,6 +152,8 @@
 
       const WEEKDAY_CUBE_HEIGHT = CUBE_SIZE * 0.45;
       const DAY_HEIGHT = CUBE_SIZE * 0.5;
+      const BOTTOM_PANEL_HEIGHT = CUBE_SIZE * 1.2;
+      const BOTTOM_PANEL_BASE_HEIGHT = CUBE_SIZE * 1.6;
 
       const eventSpecs = [
         { label: 'Birthday', accent: '#ffb7d5', labelScale: 0.15 },
@@ -375,10 +377,10 @@
         drawBow(ctx, x + size * 0.55, y - size * 0.45, size * 0.45);
       }
 
-      function createBottomPanelTexture() {
+      function createBottomPanelTexture(heightFactor = 1) {
         const canvas = Object.assign(document.createElement('canvas'), {
           width: 2048,
-          height: 640,
+          height: Math.max(128, Math.round(640 * heightFactor)),
         });
         const ctx = canvas.getContext('2d');
         ctx.fillStyle = palette.baseRed;
@@ -677,17 +679,19 @@
           leftColumnDayCubes.push(cube);
         }
 
-        const bottomTexture = createBottomPanelTexture();
+        const bottomTexture =
+          createBottomPanelTexture(BOTTOM_PANEL_HEIGHT / BOTTOM_PANEL_BASE_HEIGHT);
         const bottomPanelDepth = TILE_DEPTH;
+        const bottomCapWidth = topCapWidth;
         const bottomPanel = new THREE.Mesh(
-          new THREE.BoxGeometry(baseWidth * 0.9, CUBE_SIZE * 1.6, bottomPanelDepth),
+          new THREE.BoxGeometry(bottomCapWidth, BOTTOM_PANEL_HEIGHT, bottomPanelDepth),
           new THREE.MeshStandardMaterial({
             map: bottomTexture,
             roughness: 0.35,
             metalness: 0.05,
           })
         );
-        bottomPanel.position.set(0, -baseHeight / 2 + CUBE_SIZE * 0.9, alignedPanelZ);
+        bottomPanel.position.set(-CUBE_SIZE / 2, -baseHeight / 2 + CUBE_SIZE * 0.9, alignedPanelZ);
         bottomPanel.castShadow = true;
         bottomPanel.receiveShadow = true;
         decorGroup.add(bottomPanel);
@@ -734,7 +738,7 @@
           leftColumnTopCube: topRedCube,
           leftColumnDayCubes,
           bottomPanel,
-          bottomPanelHeight: CUBE_SIZE * 1.6,
+          bottomPanelHeight: BOTTOM_PANEL_HEIGHT,
         };
       }
 
@@ -793,8 +797,8 @@
         weekdayGroup.position.y = weekdayRowTarget - weekdayY;
         const gridBottomTarget = gridTopTarget - (WEEKS_VISIBLE - 1) * (DAY_HEIGHT + GAP);
         if (layoutState.bottomPanel) {
-          const bottomCubeBottom = gridBottomTarget - CUBE_SIZE / 2;
-          layoutState.bottomPanel.position.y = bottomCubeBottom - layoutState.bottomPanelHeight / 2;
+          const bottomCubeBottom = gridBottomTarget - DAY_HEIGHT / 2;
+          layoutState.bottomPanel.position.y = bottomCubeBottom - layoutState.bottomPanelHeight / 2 + GAP * 0.5;
         }
         const columnZ = calendarGroup.position.z;
         const leftColumnX = startX - CUBE_SIZE;
