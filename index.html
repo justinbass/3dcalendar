@@ -150,6 +150,8 @@
         kittyNose: '#ffcb6b',
       };
 
+      const WEEKDAY_CUBE_HEIGHT = CUBE_SIZE * 0.45;
+
       const eventSpecs = [
         { label: 'Birthday', accent: '#ffb7d5', labelScale: 0.15 },
         { label: 'Travel', accent: '#c4e1ff', labelScale: 0.18 },
@@ -162,7 +164,9 @@
       let calendarDate = new Date();
       let kittyTexture = null;
 
+      const RIG_ELEVATION = CUBE_SIZE * 1.5;
       const calendarRig = new THREE.Group();
+      calendarRig.position.y = RIG_ELEVATION;
       scene.add(calendarRig);
       const ground = new THREE.Mesh(
         new THREE.CircleGeometry(26, 64),
@@ -181,8 +185,14 @@
       calendarGroup.position.y = CUBE_SIZE * 0.85;
       weekdayGroup.position.y = CUBE_SIZE * 0.85;
 
-      const TILE_DEPTH = CUBE_SIZE * 0.55;
+      const TILE_DEPTH = CUBE_SIZE;
       const baseGeometry = new THREE.BoxGeometry(CUBE_SIZE, CUBE_SIZE, TILE_DEPTH);
+      const WEEKDAY_CUBE_GEOMETRY = new THREE.BoxGeometry(CUBE_SIZE, WEEKDAY_CUBE_HEIGHT, TILE_DEPTH);
+      const emptyDayMaterial = new THREE.MeshStandardMaterial({
+        color: palette.baseRed,
+        roughness: 0.55,
+        metalness: 0.1,
+      });
 
       const weekdays = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
       let layoutState = null;
@@ -597,20 +607,6 @@
         const baseWidth = width + paddingX * 2;
         const baseHeight = height + paddingY;
 
-        const blockMaterial = new THREE.MeshStandardMaterial({
-          color: palette.baseRed,
-          roughness: 0.45,
-          metalness: 0.08,
-        });
-
-        const baseBlock = new THREE.Mesh(
-          new THREE.BoxGeometry(baseWidth, baseHeight, baseDepth),
-          blockMaterial
-        );
-        baseBlock.castShadow = true;
-        baseBlock.receiveShadow = true;
-        decorGroup.add(baseBlock);
-
         const topCapMaterial = new THREE.MeshStandardMaterial({ color: '#f54d52', roughness: 0.4 });
         const topCap = new THREE.Mesh(
           new THREE.BoxGeometry(baseWidth, CUBE_SIZE * 0.55, baseDepth * 0.94),
@@ -649,24 +645,36 @@
         }
 
         const stripeTexture = createStripePanelTexture();
-        const stripePlane = new THREE.Mesh(
-          new THREE.PlaneGeometry(CUBE_SIZE * 1.15, height * 0.96),
-          new THREE.MeshBasicMaterial({ map: stripeTexture, transparent: true, side: THREE.DoubleSide })
+        const leftPanelDepth = TILE_DEPTH;
+        const leftPanel = new THREE.Mesh(
+          new THREE.BoxGeometry(CUBE_SIZE * 1.15, height * 0.96, leftPanelDepth),
+          new THREE.MeshStandardMaterial({
+            map: stripeTexture,
+            roughness: 0.35,
+            metalness: 0.08,
+          })
         );
-        stripePlane.position.set(
-          -width / 2 - CUBE_SIZE * 0.35,
-          CUBE_SIZE * 0.6,
-          frontFace + 0.01
-        );
-        decorGroup.add(stripePlane);
+        const alignedPanelZ = frontFace - TILE_DEPTH / 2 + 0.02;
+        leftPanel.position.set(-width / 2 - CUBE_SIZE * 0.35, CUBE_SIZE * 0.6, alignedPanelZ);
+        leftPanel.castShadow = true;
+        leftPanel.receiveShadow = true;
+        decorGroup.add(leftPanel);
+        const leftPanelRightEdge = leftPanel.position.x + (CUBE_SIZE * 1.15) / 2;
 
         const bottomTexture = createBottomPanelTexture();
-        const bottomPlane = new THREE.Mesh(
-          new THREE.PlaneGeometry(baseWidth * 0.9, CUBE_SIZE * 1.6),
-          new THREE.MeshBasicMaterial({ map: bottomTexture, transparent: true, side: THREE.DoubleSide })
+        const bottomPanelDepth = TILE_DEPTH;
+        const bottomPanel = new THREE.Mesh(
+          new THREE.BoxGeometry(baseWidth * 0.9, CUBE_SIZE * 1.6, bottomPanelDepth),
+          new THREE.MeshStandardMaterial({
+            map: bottomTexture,
+            roughness: 0.35,
+            metalness: 0.05,
+          })
         );
-        bottomPlane.position.set(0, -baseHeight / 2 + CUBE_SIZE * 0.9, frontFace + 0.01);
-        decorGroup.add(bottomPlane);
+        bottomPanel.position.set(0, -baseHeight / 2 + CUBE_SIZE * 0.9, alignedPanelZ);
+        bottomPanel.castShadow = true;
+        bottomPanel.receiveShadow = true;
+        decorGroup.add(bottomPanel);
 
         const flipTexture = createFlipCardTexture(date);
         const flipMaterial = new THREE.MeshBasicMaterial({ map: flipTexture, side: THREE.DoubleSide });
@@ -679,7 +687,7 @@
           new THREE.PlaneGeometry(width, CUBE_SIZE * 0.85),
           new THREE.MeshBasicMaterial({ color: palette.baseRed, side: THREE.DoubleSide })
         );
-        weekdayBar.position.set(0, height / 2 + CUBE_SIZE * 0.35, frontFace - TILE_DEPTH);
+        weekdayBar.position.set(0, height / 2 + CUBE_SIZE * 0.35, frontFace - TILE_DEPTH / 2 - 0.02);
         decorGroup.add(weekdayBar);
 
         const kittyGroup = new THREE.Group();
@@ -708,6 +716,9 @@
           baseWidth,
           baseHeight,
           baseDepth,
+          leftPanelRightEdge,
+          bottomPanel,
+          bottomPanelHeight: CUBE_SIZE * 1.6,
         };
       }
 
@@ -752,9 +763,26 @@
 
         const frontFace = layoutState.frontFace;
         calendarGroup.position.z = frontFace - TILE_DEPTH / 2 + 0.02;
-        weekdayGroup.position.z = frontFace + 0.04;
-        const startX = -totalWidth / 2 + (CUBE_SIZE + GAP) / 2;
+        const weekdayGroupZ = frontFace - TILE_DEPTH / 2 + 0.04;
+        weekdayGroup.position.z = weekdayGroupZ;
+        let startX = -totalWidth / 2 + (CUBE_SIZE + GAP) / 2;
+        const gridLeftFace = startX - CUBE_SIZE / 2;
+        const leftAlignDelta = layoutState.leftPanelRightEdge - gridLeftFace;
+        startX += leftAlignDelta;
         const startY = totalHeight / 2 - (CUBE_SIZE + GAP) / 2;
+        const weekdayY = startY + CUBE_SIZE / 2 + GAP + WEEKDAY_CUBE_HEIGHT / 2;
+        const topCapHeight = CUBE_SIZE * 0.55;
+        const topCapYOffset = CUBE_SIZE * 0.3;
+        const topBlockBottom = layoutState.baseHeight / 2 + topCapYOffset - topCapHeight / 2;
+        const weekdayRowTarget = topBlockBottom - GAP - WEEKDAY_CUBE_HEIGHT / 2;
+        const gridTopTarget = weekdayRowTarget - (CUBE_SIZE + GAP);
+        calendarGroup.position.y = gridTopTarget - startY;
+        weekdayGroup.position.y = weekdayRowTarget - weekdayY;
+        const gridBottomTarget = gridTopTarget - (WEEKS_VISIBLE - 1) * (CUBE_SIZE + GAP);
+        if (layoutState.bottomPanel) {
+          const bottomCubeBottom = gridBottomTarget - CUBE_SIZE / 2;
+          layoutState.bottomPanel.position.y = bottomCubeBottom - layoutState.bottomPanelHeight / 2;
+        }
         const eventTextures = eventSpecs.map((spec) => createEventBrickTexture({ ...spec, icon: null }));
         const iconTextures = iconSpecs.map((spec) => createEventBrickTexture({ label: '', accent: spec.accent, icon: spec.icon }));
         const lastActiveIndex = cells.reduce((acc, cell, idx) => (cell.inMonth ? idx : acc), -1);
@@ -796,6 +824,20 @@
             calendarGroup.add(cube);
             return;
           }
+
+          if (!cell.inMonth) {
+            const cube = new THREE.Mesh(baseGeometry, emptyDayMaterial);
+            cube.position.set(
+              startX + col * (CUBE_SIZE + GAP),
+              startY - row * (CUBE_SIZE + GAP),
+              0
+            );
+            cube.castShadow = true;
+            cube.receiveShadow = true;
+            calendarGroup.add(cube);
+            return;
+          }
+
           const texture = createDayTexture({
             label: cell.date.getDate().toString(),
             active: cell.inMonth,
@@ -824,14 +866,20 @@
         // Weekday labels sit slightly above cubes
         weekdays.forEach((day, idx) => {
           const spriteMap = createWeekdayTexture(day, idx === 0 || idx === 6);
-          const material = new THREE.MeshBasicMaterial({ map: spriteMap, transparent: true });
-          const plane = new THREE.Mesh(new THREE.PlaneGeometry(CUBE_SIZE, CUBE_SIZE * 0.4), material);
-          plane.position.set(
+          const material = new THREE.MeshStandardMaterial({
+            map: spriteMap,
+            roughness: 0.45,
+            metalness: 0.05,
+          });
+          const cube = new THREE.Mesh(WEEKDAY_CUBE_GEOMETRY, material);
+          cube.position.set(
             startX + idx * (CUBE_SIZE + GAP),
-            startY + CUBE_SIZE,
+            weekdayY,
             0
           );
-          weekdayGroup.add(plane);
+          cube.castShadow = true;
+          cube.receiveShadow = true;
+          weekdayGroup.add(cube);
         });
       }
 
