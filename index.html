@@ -185,7 +185,8 @@
       calendarGroup.position.y = CUBE_SIZE * 0.85;
       weekdayGroup.position.y = CUBE_SIZE * 0.85;
 
-      const TILE_DEPTH = CUBE_SIZE;
+      const DECOR_BASE_DEPTH = CUBE_SIZE * 1.4;
+      const TILE_DEPTH = DECOR_BASE_DEPTH * 0.94;
       const baseGeometry = new THREE.BoxGeometry(CUBE_SIZE, CUBE_SIZE, TILE_DEPTH);
       const WEEKDAY_CUBE_GEOMETRY = new THREE.BoxGeometry(CUBE_SIZE, WEEKDAY_CUBE_HEIGHT, TILE_DEPTH);
       const emptyDayMaterial = new THREE.MeshStandardMaterial({
@@ -602,14 +603,14 @@
         decorGroup.clear();
         const paddingX = CUBE_SIZE * 0.9;
         const paddingY = CUBE_SIZE * 1.4;
-        const baseDepth = CUBE_SIZE * 1.4;
-        const frontFace = baseDepth / 2;
+        const baseDepth = DECOR_BASE_DEPTH;
+        const frontFace = TILE_DEPTH / 2;
         const baseWidth = width + paddingX * 2;
         const baseHeight = height + paddingY;
 
         const topCapMaterial = new THREE.MeshStandardMaterial({ color: '#f54d52', roughness: 0.4 });
         const topCap = new THREE.Mesh(
-          new THREE.BoxGeometry(baseWidth, CUBE_SIZE * 0.55, baseDepth * 0.94),
+          new THREE.BoxGeometry(baseWidth, CUBE_SIZE * 0.55, TILE_DEPTH),
           topCapMaterial
         );
         topCap.position.y = baseHeight / 2 + CUBE_SIZE * 0.3;
@@ -682,13 +683,6 @@
         flipCard.position.set(baseWidth / 2 - CUBE_SIZE * 2.4, baseHeight / 2 + CUBE_SIZE * 1.7, 0.25);
         flipCard.rotation.y = Math.PI * -0.04;
         decorGroup.add(flipCard);
-
-        const weekdayBar = new THREE.Mesh(
-          new THREE.PlaneGeometry(width, CUBE_SIZE * 0.85),
-          new THREE.MeshBasicMaterial({ color: palette.baseRed, side: THREE.DoubleSide })
-        );
-        weekdayBar.position.set(0, height / 2 + CUBE_SIZE * 0.35, frontFace - TILE_DEPTH / 2 - 0.02);
-        decorGroup.add(weekdayBar);
 
         const kittyGroup = new THREE.Group();
         kittyGroup.position.set(baseWidth / 2 - CUBE_SIZE * 0.8, baseHeight / 2 + CUBE_SIZE * 1.4, -CUBE_SIZE * 0.35);
