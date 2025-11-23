@@ -130,7 +130,7 @@
       const monthLabel = document.getElementById('month-label');
 
       const DAYS_PER_WEEK = 7;
-      const WEEKS_VISIBLE = 5;
+      const WEEKS_VISIBLE = 6;
       const CUBE_SIZE = 1.4;
       const GAP = 0.02;
       const palette = {
@@ -149,6 +149,11 @@
         kittyWhite: '#fff7fb',
         kittyNose: '#ffcb6b',
       };
+
+      const eventSpecs = [
+        { label: 'Birthday', accent: '#ffb7d5', icon: 'apple' },
+        { label: 'Travel', accent: '#c4e1ff', icon: 'bow' },
+      ];
 
       let calendarDate = new Date();
       let kittyTexture = null;
@@ -190,14 +195,15 @@
         });
         const ctx = canvas.getContext('2d');
 
+        const showDateNumber = active || highlight;
         const background = highlight
           ? palette.todaySunshine
           : weekend && active
           ? palette.weekendPink
-          : active
+          : showDateNumber
           ? palette.warmWhite
-          : palette.ivory;
-        const border = highlight ? '#f9c74f' : palette.subtleOutline;
+          : palette.baseRed;
+        const border = highlight ? '#f9c74f' : showDateNumber ? palette.subtleOutline : palette.baseRed;
         const textColor = highlight ? palette.baseRed : weekend ? palette.weekendLabel : palette.numberBlue;
 
         ctx.fillStyle = background;
@@ -211,14 +217,16 @@
           size - ctx.lineWidth
         );
 
-        ctx.fillStyle = textColor;
-        ctx.font = `600 ${size * 0.5}px 'Baloo 2', 'Nunito', sans-serif`;
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-        ctx.shadowColor = 'rgba(0,0,0,0.08)';
-        ctx.shadowBlur = size * 0.04;
-        padTextureText(ctx, label, size);
-        ctx.shadowBlur = 0;
+        if (showDateNumber) {
+          ctx.fillStyle = textColor;
+          ctx.font = `600 ${size * 0.5}px 'Baloo 2', 'Nunito', sans-serif`;
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          ctx.shadowColor = 'rgba(0,0,0,0.08)';
+          ctx.shadowBlur = size * 0.04;
+          padTextureText(ctx, label, size);
+          ctx.shadowBlur = 0;
+        }
 
         if (weekend && !highlight) {
           ctx.fillStyle = 'rgba(255, 48, 74, 0.18)';
@@ -650,24 +658,6 @@
         bottomPlane.position.set(0, -baseHeight / 2 + CUBE_SIZE * 0.9, frontFace + 0.01);
         decorGroup.add(bottomPlane);
 
-        const eventSpecs = [
-          { label: 'Birthday', accent: '#ffb7d5', icon: 'apple' },
-          { label: 'Travel', accent: '#c4e1ff', icon: 'bow' },
-        ];
-        eventSpecs.forEach((spec, idx) => {
-          const tex = createEventBrickTexture(spec);
-          const plane = new THREE.Mesh(
-            new THREE.PlaneGeometry(CUBE_SIZE * 1.8, CUBE_SIZE * 1.1),
-            new THREE.MeshBasicMaterial({ map: tex, transparent: true, side: THREE.DoubleSide })
-          );
-          plane.position.set(
-            -width / 2 + CUBE_SIZE * 2.2 + idx * CUBE_SIZE * 3,
-            -height / 2 + CUBE_SIZE * 0.6,
-            frontFace + CUBE_SIZE * 0.2
-          );
-          decorGroup.add(plane);
-        });
-
         const flipTexture = createFlipCardTexture(date);
         const flipMaterial = new THREE.MeshBasicMaterial({ map: flipTexture, side: THREE.DoubleSide });
         const flipCard = new THREE.Mesh(new THREE.PlaneGeometry(CUBE_SIZE * 1.6, CUBE_SIZE * 2.2), flipMaterial);
@@ -755,10 +745,39 @@
         weekdayGroup.position.z = frontFace + 0.04;
         const startX = -totalWidth / 2 + (CUBE_SIZE + GAP) / 2;
         const startY = totalHeight / 2 - (CUBE_SIZE + GAP) / 2;
+        const eventTextures = eventSpecs.map(createEventBrickTexture);
+        const lastActiveIndex = cells.reduce((acc, cell, idx) => (cell.inMonth ? idx : acc), -1);
+        const eventSlots = [];
+        eventSpecs.forEach((_, specIdx) => {
+          const eventIdx = lastActiveIndex + 1 + specIdx;
+          if (eventIdx < cells.length) {
+            eventSlots.push({ idx: eventIdx, texture: eventTextures[specIdx] });
+          }
+        });
 
         cells.forEach((cell, idx) => {
           const col = idx % DAYS_PER_WEEK;
           const row = Math.floor(idx / DAYS_PER_WEEK);
+          const eventSlot = eventSlots.find((slot) => slot.idx === idx);
+          if (eventSlot) {
+            const material = new THREE.MeshStandardMaterial({
+              map: eventSlot.texture,
+              color: 0xffffff,
+              metalness: 0.05,
+              roughness: 0.6,
+            });
+
+            const cube = new THREE.Mesh(baseGeometry, material);
+            cube.position.set(
+              startX + col * (CUBE_SIZE + GAP),
+              startY - row * (CUBE_SIZE + GAP),
+              0
+            );
+            cube.castShadow = true;
+            cube.receiveShadow = true;
+            calendarGroup.add(cube);
+            return;
+          }
           const texture = createDayTexture({
             label: cell.date.getDate().toString(),
             active: cell.inMonth,
