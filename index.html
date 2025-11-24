@@ -52,6 +52,7 @@
         font-size: 0.75rem;
         letter-spacing: 0.15em;
         color: rgba(27, 61, 145, 0.75);
+        font-weight: 600;
       }
     </style>
   </head>
@@ -128,26 +129,55 @@
       scene.add(dirLight);
 
       const monthLabel = document.getElementById('month-label');
-
       const DAYS_PER_WEEK = 7;
       const WEEKS_VISIBLE = 6;
       const CUBE_SIZE = 1.4;
       const GAP = 0.02;
       const palette = {
-        baseRed: '#ea2b2f',
-        studRed: '#ef383c',
-        warmWhite: '#fffaf3',
-        ivory: '#fff3df',
-        accentBlue: '#1c2c84',
-        numberBlue: '#3243c4',
-        weekendPink: '#ffe1e8',
-        weekdaysRed: '#d92032',
-        weekendLabel: '#f06a8b',
-        todaySunshine: '#ffe066',
-        subtleOutline: '#f5b3c4',
-        bowRed: '#ff304a',
-        kittyWhite: '#fff7fb',
-        kittyNose: '#ffcb6b',
+        baseRed: '#1c3fc8',
+        studRed: '#2e5ce0',
+        warmWhite: '#f6f7ff',
+        ivory: '#f8f9ff',
+        accentBlue: '#7fa5ff',
+        numberBlue: '#0d1b72',
+        weekendPink: '#5e7cff',
+        weekdaysRed: '#0f1e5d',
+        weekendLabel: '#153ea0',
+        todaySunshine: '#72c7ff',
+        subtleOutline: '#9aacff',
+        bowRed: '#4f6fff',
+        kittyWhite: '#ffffff',
+        kittyNose: '#b6d4ff',
+      };
+
+      const monthPortalPalettes = [
+        { inner: '#ff87d5', outer: '#fff3fb', sparks: '#ffd6ff', rings: ['#ff9ee5', '#ffd3f5'], haze: '#ffe1ff' },
+        { inner: '#ffa67a', outer: '#fff1e3', sparks: '#fff5d6', rings: ['#ffcb9b', '#ffe6c7'], haze: '#fff7dd' },
+        { inner: '#6ce6ff', outer: '#e3fbff', sparks: '#c9f2ff', rings: ['#8be5ff', '#d2f7ff'], haze: '#eaffff' },
+        { inner: '#7effc2', outer: '#ecfffb', sparks: '#d5ffe9', rings: ['#92ffd2', '#cafff1'], haze: '#e3fff4' },
+        { inner: '#7f98ff', outer: '#eef0ff', sparks: '#d3d8ff', rings: ['#a4b7ff', '#ced6ff'], haze: '#f5f6ff' },
+        { inner: '#ff8bb0', outer: '#ffe3ee', sparks: '#ffcfe2', rings: ['#ff9fc4', '#ffd3e9'], haze: '#ffeef5' },
+        { inner: '#ffcf57', outer: '#fff6dd', sparks: '#ffe5a3', rings: ['#ffd986', '#fff2c4'], haze: '#fff9e6' },
+        { inner: '#70f9ff', outer: '#e0ffff', sparks: '#c9faff', rings: ['#8ffcff', '#d9feff'], haze: '#ecffff' },
+        { inner: '#9e87ff', outer: '#f5edff', sparks: '#e0d2ff', rings: ['#b49eff', '#e6d8ff'], haze: '#f9f6ff' },
+        { inner: '#ff9d6c', outer: '#ffe8d9', sparks: '#ffd2bc', rings: ['#ffb489', '#ffe1c8'], haze: '#fff2eb' },
+        { inner: '#7de4ff', outer: '#e7fbff', sparks: '#c8f0ff', rings: ['#9ae9ff', '#d6f8ff'], haze: '#f0fdff' },
+        { inner: '#ffc1f3', outer: '#fff2fb', sparks: '#ffe1fa', rings: ['#ffd0f7', '#ffe8fb'], haze: '#fff7fc' },
+      ];
+
+      const chronoPortalState = {
+        group: null,
+        portalMesh: null,
+        uniforms: null,
+        sparks: [],
+        rings: [],
+        pointer: new THREE.Vector2(0, 0),
+        parallax: new THREE.Vector2(0, 0),
+        anchor: new THREE.Vector3(0, 0, 0),
+        tempPosition: new THREE.Vector3(0, 0, 0),
+        portalRadius: CUBE_SIZE * 5.2,
+        pulseLight: null,
+        hazeMesh: null,
       };
 
       const WEEKDAY_CUBE_HEIGHT = CUBE_SIZE * 0.45;
@@ -163,6 +193,368 @@
         { accent: '#ffdbe8', icon: 'apple' },
         { accent: '#d5e9ff', icon: 'bow' },
       ];
+
+      const DIGITAL_CLOCK_WIDTH = CUBE_SIZE * 1.1;
+      const DIGITAL_CLOCK_HEIGHT = CUBE_SIZE * 0.5;
+      const DIGITAL_CLOCK_DEPTH = CUBE_SIZE * 0.45;
+      const GRADIENT_PANEL_WIDTH = CUBE_SIZE * 0.64;
+      const GRADIENT_PANEL_HEIGHT = CUBE_SIZE * 2.6;
+      const digitalClockState = {
+        canvas: null,
+        ctx: null,
+        texture: null,
+        mesh: null,
+        haloPivot: null,
+      };
+      const floatingAuraState = {
+        group: null,
+        radius: null,
+      };
+      const formatTwoDigits = (value) => value.toString().padStart(2, '0');
+
+      function ensureDigitalClockCanvas() {
+        if (digitalClockState.canvas) {
+          return digitalClockState;
+        }
+        digitalClockState.canvas = Object.assign(document.createElement('canvas'), {
+          width: 1024,
+          height: 512,
+        });
+        digitalClockState.ctx = digitalClockState.canvas.getContext('2d');
+        digitalClockState.texture = new THREE.CanvasTexture(digitalClockState.canvas);
+        digitalClockState.texture.encoding = THREE.sRGBColorSpace;
+        digitalClockState.texture.minFilter = THREE.LinearFilter;
+        digitalClockState.texture.magFilter = THREE.LinearFilter;
+        return digitalClockState;
+      }
+
+      function drawDigitalClockFace(date = new Date()) {
+        const { ctx, canvas, texture } = ensureDigitalClockCanvas();
+        if (!ctx || !canvas || !texture) {
+          return;
+        }
+        ctx.fillStyle = '#020610';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.fillStyle = '#0f1b39';
+        ctx.fillRect(0, canvas.height * 0.05, canvas.width, canvas.height * 0.9);
+        ctx.fillStyle = '#4ac9ff';
+        ctx.globalAlpha = 0.35;
+        ctx.fillRect(canvas.width * 0.05, canvas.height * 0.75, canvas.width * 0.9, canvas.height * 0.18);
+        ctx.globalAlpha = 1;
+        ctx.font = `900 ${canvas.height * 0.55}px 'Baloo 2', 'Nunito', sans-serif`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        const timeText = `${formatTwoDigits(date.getHours())}:${formatTwoDigits(date.getMinutes())}`;
+        ctx.fillStyle = '#73d9ff';
+        ctx.shadowColor = 'rgba(0, 0, 0, 0.35)';
+        ctx.shadowBlur = canvas.height * 0.03;
+        ctx.fillText(timeText, canvas.width / 2, canvas.height / 2);
+        ctx.shadowBlur = 0;
+        ctx.font = `600 ${canvas.height * 0.17}px 'Baloo 2', 'Nunito', sans-serif`;
+        ctx.fillStyle = '#8ccbff';
+        ctx.fillText('24 HOUR', canvas.width / 2, canvas.height * 0.85);
+        texture.needsUpdate = true;
+      }
+
+      function createClockHaloParticles() {
+        const group = new THREE.Group();
+        const dotGeometry = new THREE.SphereGeometry(DIGITAL_CLOCK_HEIGHT * 0.12, 16, 12);
+        const dotMaterial = new THREE.MeshStandardMaterial({
+          color: '#8ef0ff',
+          emissive: '#52ccff',
+          emissiveIntensity: 0.8,
+          roughness: 0.15,
+          metalness: 0.35,
+          transparent: true,
+          opacity: 0.9,
+        });
+        const dotCount = 10;
+        const radius = DIGITAL_CLOCK_WIDTH * 0.85;
+        for (let i = 0; i < dotCount; i += 1) {
+          const angle = (i / dotCount) * Math.PI * 2;
+          const dot = new THREE.Mesh(dotGeometry, dotMaterial);
+          dot.position.set(Math.cos(angle) * radius, 0, Math.sin(angle) * (radius * 0.4));
+          group.add(dot);
+        }
+        return group;
+      }
+
+      function createDigitalClockMesh() {
+        if (digitalClockState.mesh) {
+          return digitalClockState.mesh;
+        }
+        const geometry = new THREE.BoxGeometry(
+          DIGITAL_CLOCK_WIDTH,
+          DIGITAL_CLOCK_HEIGHT,
+          DIGITAL_CLOCK_DEPTH
+        );
+        const darkMaterial = new THREE.MeshStandardMaterial({
+          color: '#050a1b',
+          roughness: 0.35,
+          metalness: 0.6,
+        });
+        const frontMaterial = new THREE.MeshStandardMaterial({
+          map: ensureDigitalClockCanvas().texture,
+          emissive: '#1d5bff',
+          emissiveIntensity: 0.7,
+          roughness: 0.2,
+          metalness: 0.3,
+        });
+        const materials = [
+          darkMaterial, // right
+          darkMaterial, // left
+          darkMaterial, // top
+          darkMaterial, // bottom
+          frontMaterial, // front
+          darkMaterial, // back
+        ];
+        const mesh = new THREE.Mesh(geometry, materials);
+        mesh.castShadow = true;
+        mesh.receiveShadow = true;
+        const haloPivot = new THREE.Group();
+        haloPivot.userData.isDigitalClockHalo = true;
+        haloPivot.add(createClockHaloParticles());
+        haloPivot.position.set(0, 0, DIGITAL_CLOCK_DEPTH * 0.55);
+        mesh.add(haloPivot);
+        digitalClockState.haloPivot = haloPivot;
+        digitalClockState.mesh = mesh;
+        return mesh;
+      }
+
+      function createFloatingAuraParticles(radius) {
+        const group = new THREE.Group();
+        const particleGeo = new THREE.CylinderGeometry(DIGITAL_CLOCK_HEIGHT * 0.08, DIGITAL_CLOCK_HEIGHT * 0.08, DIGITAL_CLOCK_HEIGHT * 0.3, 12);
+        const particleMat = new THREE.MeshStandardMaterial({
+          color: '#c9fbff',
+          emissive: '#6fdfff',
+          emissiveIntensity: 0.6,
+          roughness: 0.15,
+          metalness: 0.45,
+        });
+        const particleCount = 12;
+        for (let i = 0; i < particleCount; i += 1) {
+          const angle = (i / particleCount) * Math.PI * 2;
+          const particle = new THREE.Mesh(particleGeo, particleMat);
+          particle.rotation.x = Math.PI / 2;
+          particle.position.set(Math.cos(angle) * radius, DIGITAL_CLOCK_HEIGHT * 0.2, Math.sin(angle) * radius * 0.5);
+          particle.userData = {
+            baseY: particle.position.y,
+            offset: angle,
+          };
+          group.add(particle);
+        }
+        return group;
+      }
+
+      function createGradientPlane() {
+        const canvas = document.createElement('canvas');
+        const width = 512;
+        const height = 1024;
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        const grad = ctx.createLinearGradient(0, 0, 0, height);
+        grad.addColorStop(0, 'rgba(110, 188, 255, 0.9)');
+        grad.addColorStop(0.45, 'rgba(90, 160, 255, 0.65)');
+        grad.addColorStop(1, 'rgba(40, 110, 255, 0.35)');
+        ctx.fillStyle = grad;
+        ctx.fillRect(0, 0, width, height);
+        ctx.globalCompositeOperation = 'screen';
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.15)';
+        for (let i = 0; i < 8; i += 1) {
+          ctx.fillRect(0, (i / 8) * height, width, 6);
+        }
+        const texture = new THREE.CanvasTexture(canvas);
+        texture.encoding = THREE.sRGBColorSpace;
+        texture.needsUpdate = true;
+        return texture;
+      }
+
+      const portalVertexShader = /* glsl */ `
+        varying vec2 vUv;
+        uniform float uTime;
+        uniform vec2 uParallax;
+        void main() {
+          vUv = uv;
+          vec3 distorted = position;
+          float rippleOne = sin((uv.y + uTime * 0.25) * 18.0) * 0.08;
+          float rippleTwo = cos((uv.x + uTime * 0.4) * 14.0) * 0.06;
+          distorted.z += rippleOne + rippleTwo;
+          distorted.xy += uParallax * 0.4;
+          gl_Position = projectionMatrix * modelViewMatrix * vec4(distorted, 1.0);
+        }
+      `;
+
+      const portalFragmentShader = /* glsl */ `
+        varying vec2 vUv;
+        uniform float uTime;
+        uniform vec3 uColorInner;
+        uniform vec3 uColorOuter;
+        float hash(vec2 p) {
+          return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453);
+        }
+        float noise(vec2 p) {
+          vec2 i = floor(p);
+          vec2 f = fract(p);
+          float a = hash(i);
+          float b = hash(i + vec2(1.0, 0.0));
+          float c = hash(i + vec2(0.0, 1.0));
+          float d = hash(i + vec2(1.0, 1.0));
+          vec2 u = f * f * (3.0 - 2.0 * f);
+          return mix(a, b, u.x) + (c - a) * u.y * (1.0 - u.x) + (d - b) * u.x * u.y;
+        }
+        void main() {
+          vec2 centered = vUv - 0.5;
+          float len = length(centered) * 2.0;
+          float swirl = atan(centered.y, centered.x);
+          float time = uTime * 0.45;
+          float ripple = sin(len * 20.0 - time * 10.0 + swirl * 3.5);
+          float flow = noise(centered * 8.0 + time * 0.6);
+          float glow = smoothstep(1.35, 0.0, len + flow * 0.3);
+          float filament = smoothstep(0.8, 0.15, abs(ripple)) * 0.6;
+          vec3 baseColor = mix(uColorInner, uColorOuter, clamp(len, 0.0, 1.0));
+          vec3 color = baseColor * (0.6 + flow * 0.5) + vec3(1.0) * filament * 0.45;
+          color += baseColor * pow(glow, 1.4);
+          float alpha = glow * 0.85 + filament * 0.3;
+          if (alpha < 0.025) discard;
+          gl_FragColor = vec4(color, alpha);
+        }
+      `;
+
+      function ensureChronoPortal() {
+        if (chronoPortalState.group) {
+          return chronoPortalState.group;
+        }
+        const group = new THREE.Group();
+        chronoPortalState.group = group;
+
+        const uniforms = {
+          uTime: { value: 0 },
+          uColorInner: { value: new THREE.Color('#ff9ff2') },
+          uColorOuter: { value: new THREE.Color('#ffe6fb') },
+          uParallax: { value: new THREE.Vector2(0, 0) },
+        };
+        chronoPortalState.uniforms = uniforms;
+
+        const geometry = new THREE.CircleGeometry(chronoPortalState.portalRadius, 160);
+        const material = new THREE.ShaderMaterial({
+          uniforms,
+          vertexShader: portalVertexShader,
+          fragmentShader: portalFragmentShader,
+          transparent: true,
+          depthWrite: false,
+          blending: THREE.AdditiveBlending,
+          side: THREE.DoubleSide,
+        });
+        const portalMesh = new THREE.Mesh(geometry, material);
+        portalMesh.rotation.y = Math.PI;
+        group.add(portalMesh);
+        chronoPortalState.portalMesh = portalMesh;
+
+        const ringRadii = [0.55, 0.78, 0.98];
+        ringRadii.forEach((ratio, index) => {
+          const ringGeometry = new THREE.TorusGeometry(
+            chronoPortalState.portalRadius * ratio,
+            CUBE_SIZE * (0.08 + index * 0.02),
+            40,
+            240
+          );
+          const ringMaterial = new THREE.MeshStandardMaterial({
+            color: '#fff6ff',
+            emissive: '#ffd6ff',
+            emissiveIntensity: 0.35 + index * 0.15,
+            roughness: 0.25,
+            metalness: 0.6,
+            transparent: true,
+            opacity: 0.9 - index * 0.15,
+          });
+          const ring = new THREE.Mesh(ringGeometry, ringMaterial);
+          ring.rotation.x = Math.PI / 2.3;
+          ring.rotation.y = index * 0.3;
+          ring.userData.spin = index % 2 === 0 ? 1 : -1;
+          chronoPortalState.rings.push(ring);
+          group.add(ring);
+        });
+
+        const sparkGeometry = new THREE.SphereGeometry(CUBE_SIZE * 0.1, 16, 12);
+        const sparkCount = 42;
+        for (let i = 0; i < sparkCount; i += 1) {
+          const sparkMaterial = new THREE.MeshBasicMaterial({
+            color: '#f5ffff',
+            transparent: true,
+            opacity: 0.75,
+            blending: THREE.AdditiveBlending,
+            depthWrite: false,
+          });
+          const spark = new THREE.Mesh(sparkGeometry, sparkMaterial);
+          spark.userData = {
+            radius: chronoPortalState.portalRadius * (0.3 + Math.random() * 0.55),
+            speed: 0.2 + Math.random() * 0.35,
+            offset: Math.random() * Math.PI * 2,
+            lift: CUBE_SIZE * (0.35 + Math.random() * 0.55),
+          };
+          chronoPortalState.sparks.push(spark);
+          group.add(spark);
+        }
+
+        const hazeGeometry = new THREE.CircleGeometry(chronoPortalState.portalRadius * 1.26, 90);
+        const hazeMaterial = new THREE.MeshBasicMaterial({
+          color: '#ffeefd',
+          transparent: true,
+          opacity: 0.18,
+          depthWrite: false,
+          blending: THREE.AdditiveBlending,
+        });
+        const hazeMesh = new THREE.Mesh(hazeGeometry, hazeMaterial);
+        hazeMesh.rotation.y = Math.PI;
+        hazeMesh.position.z = -CUBE_SIZE * 0.1;
+        group.add(hazeMesh);
+        chronoPortalState.hazeMesh = hazeMesh;
+
+        chronoPortalState.pulseLight = new THREE.PointLight('#ffeaff', 2.1, CUBE_SIZE * 16, 2);
+        chronoPortalState.pulseLight.position.set(0, 0, chronoPortalState.portalRadius * 0.05);
+        group.add(chronoPortalState.pulseLight);
+
+        return group;
+      }
+
+      function updateChronoPortalPalette(date) {
+        if (!chronoPortalState.uniforms) {
+          return;
+        }
+        const palette = monthPortalPalettes[date.getMonth() % monthPortalPalettes.length];
+        chronoPortalState.uniforms.uColorInner.value.set(palette.inner);
+        chronoPortalState.uniforms.uColorOuter.value.set(palette.outer);
+        if (chronoPortalState.hazeMesh) {
+          chronoPortalState.hazeMesh.material.color.set(palette.haze);
+        }
+        chronoPortalState.sparks.forEach((spark) => {
+          spark.material.color.set(palette.sparks);
+        });
+        chronoPortalState.rings.forEach((ring, index) => {
+          const ringColor = palette.rings[index % palette.rings.length];
+          ring.material.color.set(ringColor);
+          if (ring.material.emissive) {
+            ring.material.emissive.set(ringColor);
+          }
+        });
+        if (chronoPortalState.pulseLight) {
+          chronoPortalState.pulseLight.color.set(palette.sparks);
+        }
+      }
+
+      function updateChronoPortalLayout(date, metrics) {
+        const group = ensureChronoPortal();
+        const { baseWidth, baseHeight, baseDepth } = metrics;
+        const scale = THREE.MathUtils.clamp(baseWidth / (CUBE_SIZE * 6), 0.7, 1.4);
+        group.scale.setScalar(scale);
+        chronoPortalState.anchor.set(-CUBE_SIZE * 0.25, baseHeight * 0.18, -baseDepth * 0.55);
+        group.position.copy(chronoPortalState.anchor);
+        updateChronoPortalPalette(date);
+      }
+
+      drawDigitalClockFace();
+      setInterval(() => drawDigitalClockFace(new Date()), 1000);
 
       let calendarDate = new Date();
       let kittyTexture = null;
@@ -184,6 +576,10 @@
       calendarRig.add(decorGroup);
       calendarRig.add(calendarGroup);
       calendarRig.add(weekdayGroup);
+      const chronoPortalGroup = ensureChronoPortal();
+      calendarRig.add(chronoPortalGroup);
+      chronoPortalState.anchor.set(0, 0, -CUBE_SIZE * 3);
+      chronoPortalGroup.position.copy(chronoPortalState.anchor);
 
       calendarGroup.position.y = CUBE_SIZE * 0.85;
       weekdayGroup.position.y = CUBE_SIZE * 0.85;
@@ -200,6 +596,7 @@
 
       const weekdays = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
       let layoutState = null;
+      const auroraPanels = [];
 
       const NUMBER_X_SCALE = 0.78;
       function padTextureText(ctx, label, size) {
@@ -621,7 +1018,7 @@
         const baseHeight = height + paddingY;
 
         const topCapWidth = width + CUBE_SIZE - GAP;
-        const topCapMaterial = new THREE.MeshStandardMaterial({ color: '#f54d52', roughness: 0.4 });
+        const topCapMaterial = new THREE.MeshStandardMaterial({ color: palette.baseRed, roughness: 0.4 });
         const topCap = new THREE.Mesh(
           new THREE.BoxGeometry(topCapWidth, CUBE_SIZE * 0.55, TILE_DEPTH),
           topCapMaterial
@@ -645,11 +1042,13 @@
         });
         const studRows = 2;
         const studCols = 4;
+        const studSpacing = CUBE_SIZE * 0.95;
+        const studStartX = -baseWidth / 2 + CUBE_SIZE * 0.9;
         for (let r = 0; r < studRows; r += 1) {
           for (let c = 0; c < studCols; c += 1) {
             const stud = new THREE.Mesh(studGeometry, studMaterial);
             stud.position.set(
-              -baseWidth / 2 + CUBE_SIZE * 0.9 + c * CUBE_SIZE * 0.95,
+              studStartX + c * studSpacing,
               baseHeight / 2 + CUBE_SIZE * 0.6,
               -CUBE_SIZE * 0.25 + r * CUBE_SIZE * 0.55
             );
@@ -658,6 +1057,57 @@
             decorGroup.add(stud);
           }
         }
+        const studRightEdge = studStartX + (studCols - 1) * studSpacing;
+
+        const digitalClockMesh = createDigitalClockMesh();
+        const tentativeClockX =
+          studRightEdge + DIGITAL_CLOCK_WIDTH / 2 + CUBE_SIZE * 0.35;
+        const maxClockX = topCapWidth / 2 - DIGITAL_CLOCK_WIDTH / 2 - CUBE_SIZE * 0.15;
+        const clockX = Math.min(tentativeClockX, maxClockX);
+        const topCapTop = topCap.position.y + (CUBE_SIZE * 0.55) / 2;
+        const clockY = topCapTop + DIGITAL_CLOCK_HEIGHT / 2 + CUBE_SIZE * 0.05;
+        const clockZ = frontFace - DIGITAL_CLOCK_DEPTH / 2 - TILE_DEPTH * 0.1;
+        digitalClockMesh.position.set(clockX, clockY, clockZ);
+        decorGroup.add(digitalClockMesh);
+
+        const auraRadius = topCapWidth * 0.42;
+        const floatingAura = createFloatingAuraParticles(auraRadius);
+        const auraX = -topCapWidth / 2 + topCapWidth * 0.5;
+        const auraY = topCapTop + CUBE_SIZE * 0.8;
+        const auraZ = clockZ + CUBE_SIZE * 0.25;
+        floatingAura.position.set(auraX, auraY, auraZ);
+        decorGroup.add(floatingAura);
+        floatingAuraState.group = floatingAura;
+        floatingAuraState.radius = auraRadius;
+
+        auroraPanels.length = 0;
+        const gradientTexture = createGradientPlane();
+        const panelGeometry = new THREE.PlaneGeometry(GRADIENT_PANEL_WIDTH, GRADIENT_PANEL_HEIGHT);
+        const createPanelMesh = (sideIndex) => {
+          const material = new THREE.MeshBasicMaterial({
+            map: gradientTexture,
+            transparent: true,
+            opacity: 0.55,
+            side: THREE.DoubleSide,
+            depthWrite: false,
+          });
+          return new THREE.Mesh(panelGeometry, material);
+        };
+        const panelY = topCapTop + CUBE_SIZE * 0.35;
+        const panelZ = frontFace - TILE_DEPTH * 0.45;
+        const panelXOffset = topCapWidth / 2 + GRADIENT_PANEL_WIDTH * 0.3;
+        const leftPanel = createPanelMesh(0);
+        leftPanel.position.set(-panelXOffset, panelY, panelZ);
+        leftPanel.rotation.y = THREE.MathUtils.degToRad(12);
+        leftPanel.userData.baseY = panelY;
+        decorGroup.add(leftPanel);
+        auroraPanels.push(leftPanel);
+        const rightPanel = createPanelMesh(1);
+        rightPanel.position.set(panelXOffset, panelY, panelZ);
+        rightPanel.rotation.y = THREE.MathUtils.degToRad(-12);
+        rightPanel.userData.baseY = panelY;
+        decorGroup.add(rightPanel);
+        auroraPanels.push(rightPanel);
 
         const leftColumnGroup = new THREE.Group();
         decorGroup.add(leftColumnGroup);
@@ -732,6 +1182,12 @@
         });
 
         decorGroup.add(kittyGroup);
+
+        updateChronoPortalLayout(date, {
+          baseWidth,
+          baseHeight,
+          baseDepth,
+        });
 
         ground.position.y = -baseHeight / 2 - CUBE_SIZE * 0.15;
 
@@ -923,6 +1379,8 @@
       createCalendar(calendarDate);
 
       window.addEventListener('resize', onResize);
+      container.addEventListener('pointermove', onPointerMove);
+      container.addEventListener('pointerleave', resetPointerParallax);
 
       function onResize() {
         const { clientWidth, clientHeight } = container;
@@ -931,10 +1389,88 @@
         renderer.setSize(clientWidth, clientHeight);
       }
 
+      function onPointerMove(event) {
+        const rect = container.getBoundingClientRect();
+        const normX = ((event.clientX - rect.left) / rect.width - 0.5) * 2;
+        const normY = ((event.clientY - rect.top) / rect.height - 0.5) * -2;
+        chronoPortalState.pointer.set(normX, normY);
+      }
+
+      function resetPointerParallax() {
+        chronoPortalState.pointer.set(0, 0);
+      }
+
       function animate() {
         requestAnimationFrame(animate);
         calendarRig.rotation.y += 0.0005;
         calendarRig.rotation.x = THREE.MathUtils.lerp(calendarRig.rotation.x, 0.1, 0.02);
+        if (digitalClockState.haloPivot) {
+          const time = performance.now() * 0.001;
+          digitalClockState.haloPivot.rotation.y += 0.015;
+          digitalClockState.haloPivot.rotation.z = Math.sin(time * 0.75) * 0.18;
+        }
+        if (floatingAuraState.group) {
+          const time = performance.now() * 0.001;
+          floatingAuraState.group.rotation.y = time * 0.4;
+          floatingAuraState.group.children.forEach((particle, index) => {
+            const offset = particle.userData.offset || 0;
+            particle.position.y =
+              particle.userData.baseY + Math.sin(time * 1.2 + offset + index * 0.25) * 0.08;
+            particle.position.z =
+              Math.sin(time * 0.6 + index * 0.3) * floatingAuraState.radius * 0.35;
+          });
+        }
+        if (auroraPanels.length) {
+          const t = performance.now() * 0.0007;
+          auroraPanels.forEach((panel, index) => {
+            const baseY = panel.userData.baseY || panel.position.y;
+            panel.position.y = baseY + Math.sin(t + index * 0.6) * 0.12;
+            panel.rotation.y = THREE.MathUtils.degToRad(12) * (index === 0 ? 1 : -1) + Math.sin(t * 0.8) * 0.1;
+            panel.material.opacity = 0.45 + Math.sin(t * 1.1 + index) * 0.08;
+          });
+        }
+        if (chronoPortalState.group && chronoPortalState.uniforms) {
+          const portalTime = performance.now() * 0.001;
+          chronoPortalState.uniforms.uTime.value = portalTime;
+          chronoPortalState.parallax.lerp(chronoPortalState.pointer, 0.08);
+          chronoPortalState.uniforms.uParallax.value.copy(chronoPortalState.parallax);
+          chronoPortalState.tempPosition.copy(chronoPortalState.anchor);
+          chronoPortalState.tempPosition.x += chronoPortalState.parallax.x * CUBE_SIZE * 0.5;
+          chronoPortalState.tempPosition.y += chronoPortalState.parallax.y * CUBE_SIZE * 0.6;
+          chronoPortalState.group.position.lerp(chronoPortalState.tempPosition, 0.08);
+          chronoPortalState.group.rotation.y = THREE.MathUtils.lerp(
+            chronoPortalState.group.rotation.y,
+            THREE.MathUtils.degToRad(-4) + chronoPortalState.parallax.x * 0.2,
+            0.08
+          );
+          chronoPortalState.group.rotation.x = THREE.MathUtils.lerp(
+            chronoPortalState.group.rotation.x,
+            THREE.MathUtils.degToRad(-6) + chronoPortalState.parallax.y * 0.12,
+            0.08
+          );
+          chronoPortalState.rings.forEach((ring, index) => {
+            ring.rotation.z += 0.0035 * (ring.userData.spin || 1);
+            ring.rotation.x = Math.PI / 2.4 + Math.sin(portalTime * 0.4 + index * 0.6) * 0.08;
+          });
+          chronoPortalState.sparks.forEach((spark) => {
+            const data = spark.userData;
+            const angle = portalTime * data.speed + data.offset;
+            spark.position.set(
+              Math.cos(angle) * data.radius,
+              Math.sin(portalTime * 1.6 + data.offset) * data.lift,
+              Math.sin(angle) * data.radius * 0.45
+            );
+            const scale = 0.55 + Math.sin(portalTime * 2.2 + data.offset) * 0.25;
+            spark.scale.setScalar(scale);
+            spark.material.opacity = 0.35 + (Math.sin(portalTime * 3.0 + data.offset) + 1) * 0.3;
+          });
+          if (chronoPortalState.pulseLight) {
+            chronoPortalState.pulseLight.intensity = 1.4 + Math.sin(portalTime * 2.6) * 0.7;
+          }
+          if (chronoPortalState.hazeMesh) {
+            chronoPortalState.hazeMesh.rotation.z += 0.0008;
+          }
+        }
         controls.update();
         renderer.render(scene, camera);
       }
